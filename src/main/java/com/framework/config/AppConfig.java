@@ -9,13 +9,15 @@ import org.aeonbits.owner.Config;
  */
 @Config.Sources({
         "system:properties",
-        "file:src/test/resources/config/${env}.properties",
         "classpath:config/${env}.properties",
-        "classpath:config/default.properties"
+        "file:src/test/resources/config/${env}.properties",
+        "classpath:config/default.properties",
+        "file:src/test/resources/config/default.properties"
 })
 public interface AppConfig extends Config {
 
     @Key("base.url")
+    @DefaultValue("https://reqres.in")
     String baseUrl();
 
     @Key("base.path")

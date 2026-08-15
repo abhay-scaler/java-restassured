@@ -1,5 +1,6 @@
 package com.framework.dataproviders;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.framework.utils.CsvUtils;
 import com.framework.utils.ExcelUtils;
 import com.framework.utils.FileReaderUtils;
@@ -22,7 +23,8 @@ public final class DataProviders {
     /** Generic JSON-array-of-objects reader; point PROVIDER_FILE per usage via system property, or wrap per-file. */
     public static Object[][] fromJsonArray(String filePath) {
         String content = FileReaderUtils.readAsString(filePath);
-        List<Map<String, Object>> rows = JsonUtils.fromJsonList(content, Map.class);
+        List<Map<String, Object>> rows = JsonUtils.fromJsonList(content, 
+            new TypeReference<List<Map<String, Object>>>() {});
         Object[][] data = new Object[rows.size()][1];
         for (int i = 0; i < rows.size(); i++) {
             data[i][0] = rows.get(i);

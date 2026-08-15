@@ -1,5 +1,6 @@
 package com.framework.utils;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -9,6 +10,7 @@ import io.restassured.path.json.JsonPath;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Central Jackson wrapper. One ObjectMapper instance, configured once,
@@ -65,6 +67,18 @@ public final class JsonUtils {
         } catch (Exception e) {
             throw new FrameworkException("Failed to deserialize JSON array to List<"
                     + elementClass.getSimpleName() + ">", e);
+        }
+    }
+
+    /**
+     * Deserialize JSON to List with full TypeReference support for complex generics (e.g., List&lt;Map&lt;String, Object&gt;&gt;).
+     * Use this for generic types that can't be represented with just Class&lt;T&gt;.
+     */
+    public static <T> List<T> fromJsonList(String json, TypeReference<List<T>> typeReference) {
+        try {
+            return MAPPER.readValue(json, typeReference);
+        } catch (Exception e) {
+            throw new FrameworkException("Failed to deserialize JSON array with TypeReference", e);
         }
     }
 
