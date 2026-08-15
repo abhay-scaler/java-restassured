@@ -13,11 +13,10 @@ import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 
 /**
- * Single place that assembles a {@link RequestSpecification}: base URI,
- * timeouts, auth, and logging/Allure filters all come from here so every
- * client and test shares identical baseline behaviour. Tests that need a
- * one-off tweak (extra header, different content-type) do it on the
- * returned spec without touching this factory.
+ * Single place that assembles a RequestSpecification.
+ *
+ * Base URL, base path, timeouts, authentication and filters are centralized
+ * here so every RestClient instance uses the same baseline configuration.
  */
 public final class RequestSpecFactory {
 
@@ -27,9 +26,10 @@ public final class RequestSpecFactory {
     public static RequestSpecification createDefault() {
         AppConfig config = ConfigManager.getConfig();
 
+        String baseUri = buildBaseUri(config);
+
         RequestSpecBuilder builder = new RequestSpecBuilder()
-                .setBaseUri(config.baseUrl())
-                .setBasePath(config.basePath())
+                .setBaseUri(baseUri)
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
                 .setConfig(restAssuredConfig(config))
@@ -43,9 +43,11 @@ public final class RequestSpecFactory {
 
     public static RequestSpecification createWithoutAuth() {
         AppConfig config = ConfigManager.getConfig();
+
+        String baseUri = buildBaseUri(config);
+
         return new RequestSpecBuilder()
-                .setBaseUri(config.baseUrl())
-                .setBasePath(config.basePath())
+                .setBaseUri(baseUri)
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
                 .setConfig(restAssuredConfig(config))
@@ -54,12 +56,60 @@ public final class RequestSpecFactory {
                 .build();
     }
 
+    /**
+     * Builds one deterministic base URI.
+     *
+     * Example:
+     * base.url  = https://reqres.in
+     * base.path = /api
+     *
+     * Result:
+     * https://reqres.in/api
+     */
+    private static String buildBaseUri(AppConfig config) {
+        String baseUrl = config.baseUrl();
+
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalStateException(
+                    "Configuration property 'base.url' must not be empty"
+            );
+        }
+
+        baseUrl = baseUrl.trim().replaceAll("/+$", "");
+
+        String basePath = config.basePath();
+
+        if (basePath == null || basePath.isBlank() || "/".equals(basePath.trim())) {
+            return baseUrl;
+        }
+
+        basePath = basePath.trim();
+
+        if (!basePath.startsWith("/")) {
+            basePath = "/" + basePath;
+        }
+
+        basePath = basePath.replaceAll("/+$", "");
+
+        return baseUrl + basePath;
+    }
+
     private static RestAssuredConfig restAssuredConfig(AppConfig config) {
         return RestAssuredConfig.config()
-                .httpClient(HttpClientConfig.httpClientConfig()
-                        .setParam("http.connection.timeout", config.connectionTimeout())
-                        .setParam("http.socket.timeout", config.socketTimeout()))
-                .encoderConfig(EncoderConfig.encoderConfig()
-                        .defaultContentCharset("UTF-8"));
+                .httpClient(
+                        HttpClientConfig.httpClientConfig()
+                                .setParam(
+                                        "http.connection.timeout",
+                                        config.connectionTimeout()
+                                )
+                                .setParam(
+                                        "http.socket.timeout",
+                                        config.socketTimeout()
+                                )
+                )
+                .encoderConfig(
+                        EncoderConfig.encoderConfig()
+                                .defaultContentCharset("UTF-8")
+                );
     }
 }

@@ -3,16 +3,16 @@ package com.framework.config;
 import org.aeonbits.owner.Config;
 
 /**
- * Type-safe configuration interface backed by OWNER.
- * Values resolve from -D system properties first, then env-specific
- * properties file, giving CLI overrides for CI pipelines.
+ * Type-safe application configuration backed by OWNER.
+ *
+ * Environment-specific properties are loaded explicitly by
+ * ConfigManager.
+ *
+ * System properties may override individual values.
  */
 @Config.Sources({
         "system:properties",
-        "classpath:config/${env}.properties",
-        "file:src/test/resources/config/${env}.properties",
-        "classpath:config/default.properties",
-        "file:src/test/resources/config/default.properties"
+        "classpath:config/default.properties"
 })
 public interface AppConfig extends Config {
 

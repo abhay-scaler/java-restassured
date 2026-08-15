@@ -29,7 +29,7 @@ public class UpdateUserTests extends BaseTest {
                 .job("Senior QA Engineer")
                 .build();
 
-        Response response = client.pathParam("id", 2).put(UserEndpoints.USER_BY_ID, requestBody);
+        Response response = client().pathParam("id", 2).put(UserEndpoints.USER_BY_ID, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(200)
@@ -44,7 +44,7 @@ public class UpdateUserTests extends BaseTest {
                 .job("Principal QA Architect")
                 .build();
 
-        Response response = client.pathParam("id", 2).patch(UserEndpoints.USER_BY_ID, requestBody);
+        Response response = client().pathParam("id", 2).patch(UserEndpoints.USER_BY_ID, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(200)
@@ -59,7 +59,7 @@ public class UpdateUserTests extends BaseTest {
                 .job("Unknown")
                 .build();
 
-        Response response = client.pathParam("id", 999999).put(UserEndpoints.USER_BY_ID, requestBody);
+        Response response = client().pathParam("id", 999999).put(UserEndpoints.USER_BY_ID, requestBody);
         ResponseValidator.of(response).assertStatusCode(200);
     }
 }

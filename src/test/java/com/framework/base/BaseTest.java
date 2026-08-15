@@ -11,21 +11,44 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeSuite;
 
-/**
- * Every test class extends this. Centralizes per-test setup (fresh
- * RestClient so no state leaks between tests) and captures response/failure
- * context into Allure automatically on failure.
- */
 public abstract class BaseTest {
 
-    protected static final Logger log = LoggerFactory.getLogger(BaseTest.class);
+    protected static final Logger log =
+            LoggerFactory.getLogger(BaseTest.class);
+
     protected RestClient client;
 
     @BeforeSuite(alwaysRun = true)
     public void beforeSuite() {
+
         AppConfig config = ConfigManager.getConfig();
-        log.info("Running against environment [{}], base URL: {}",
-                ConfigManager.getEnvironment().getValue(), config.baseUrl());
+
+        log.info("========================================");
+        log.info(
+                "Test Environment : [{}]",
+                ConfigManager.getEnvironment().getValue()
+        );
+        log.info(
+                "Base URL         : [{}]",
+                config.baseUrl()
+        );
+        log.info(
+                "Base Path        : [{}]",
+                config.basePath()
+        );
+        log.info(
+                "Auth Type        : [{}]",
+                config.authType()
+        );
+        log.info(
+                "API Key Header   : [{}]",
+                config.apiKeyName()
+        );
+        log.info(
+                "Max Retry Count  : [{}]",
+                config.maxRetryCount()
+        );
+        log.info("========================================");
     }
 
     @BeforeMethod(alwaysRun = true)
@@ -33,10 +56,23 @@ public abstract class BaseTest {
         client = new RestClient();
     }
 
+    /**
+     * Provides the RestClient to test classes.
+     */
+    protected RestClient client() {
+        return client;
+    }
+
     @AfterMethod(alwaysRun = true)
     public void tearDown(ITestResult result) {
-        if (!result.isSuccess() && result.getThrowable() != null) {
-            Allure.addAttachment("Failure stacktrace", result.getThrowable().toString());
+
+        if (!result.isSuccess()
+                && result.getThrowable() != null) {
+
+            Allure.addAttachment(
+                    "Failure stacktrace",
+                    result.getThrowable().toString()
+            );
         }
     }
 }
