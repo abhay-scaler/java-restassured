@@ -1,0 +1,4 @@
+[
+  { "email": "", "password": "pistol", "expectedError": "Missing email or username" },
+  { "email": "sydney@fife", "password": "", "expectedError": "Missing password" }
+]
