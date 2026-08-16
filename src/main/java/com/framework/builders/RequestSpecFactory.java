@@ -3,6 +3,7 @@ package com.framework.builders;
 import com.framework.auth.AuthProvider;
 import com.framework.config.AppConfig;
 import com.framework.config.ConfigManager;
+import com.framework.filters.ExtentReportingFilter;
 import com.framework.filters.RequestResponseLoggingFilter;
 import io.qameta.allure.restassured.AllureRestAssured;
 import io.restassured.builder.RequestSpecBuilder;
@@ -34,7 +35,8 @@ public final class RequestSpecFactory {
                 .setAccept(ContentType.JSON)
                 .setConfig(restAssuredConfig(config))
                 .addFilter(new AllureRestAssured())
-                .addFilter(new RequestResponseLoggingFilter());
+                .addFilter(new RequestResponseLoggingFilter())
+                .addFilter(new ExtentReportingFilter());
 
         AuthProvider.apply(builder, config);
 
@@ -53,6 +55,7 @@ public final class RequestSpecFactory {
                 .setConfig(restAssuredConfig(config))
                 .addFilter(new AllureRestAssured())
                 .addFilter(new RequestResponseLoggingFilter())
+                .addFilter(new ExtentReportingFilter())
                 .build();
     }
 

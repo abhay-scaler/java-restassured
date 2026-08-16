@@ -29,7 +29,7 @@ public class AuthTests extends BaseTest {
                 .password("pistol")
                 .build();
 
-        Response response = client.post(UserEndpoints.REGISTER, requestBody);
+        Response response = client().post(UserEndpoints.REGISTER, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(200)
@@ -45,7 +45,7 @@ public class AuthTests extends BaseTest {
                 .password("cityslicka")
                 .build();
 
-        Response response = client.post(UserEndpoints.LOGIN, requestBody);
+        Response response = client().post(UserEndpoints.LOGIN, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(200)
@@ -62,7 +62,7 @@ public class AuthTests extends BaseTest {
                 .password((String) data.get("password"))
                 .build();
 
-        Response response = client.post(UserEndpoints.LOGIN, requestBody);
+        Response response = client().post(UserEndpoints.LOGIN, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(400)
@@ -76,7 +76,7 @@ public class AuthTests extends BaseTest {
                 .email("sydney@fife")
                 .build();
 
-        Response response = client.post(UserEndpoints.REGISTER, requestBody);
+        Response response = client().post(UserEndpoints.REGISTER, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(400)

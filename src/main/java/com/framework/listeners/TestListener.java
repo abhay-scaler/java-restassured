@@ -1,5 +1,6 @@
 package com.framework.listeners;
 
+import com.aventstack.extentreports.ExtentTest;
 import com.aventstack.extentreports.Status;
 import com.framework.reporting.ExtentManager;
 import com.framework.reporting.ExtentTestManager;
@@ -38,7 +39,7 @@ public class TestListener implements ITestListener {
 
     @Override
     public void onTestSuccess(ITestResult result) {
-        ExtentTestManager.getTest().log(Status.PASS, "Test passed");
+        ensureTestNode(result).log(Status.PASS, "Test passed");
         log.info("<--- PASSED: {}", result.getMethod().getMethodName());
         ExtentTestManager.unload();
     }
@@ -46,7 +47,11 @@ public class TestListener implements ITestListener {
     @Override
     public void onTestFailure(ITestResult result) {
         Throwable throwable = result.getThrowable();
-        ExtentTestManager.getTest().log(Status.FAIL, throwable);
+        if (throwable != null) {
+            ensureTestNode(result).log(Status.FAIL, throwable);
+        } else {
+            ensureTestNode(result).log(Status.FAIL, "Test failed");
+        }
         log.error("<--- FAILED: {}", result.getMethod().getMethodName(), throwable);
 
         // Attach failure details to the Allure report too.
@@ -61,7 +66,7 @@ public class TestListener implements ITestListener {
     public void onTestSkipped(ITestResult result) {
         String reason = result.getThrowable() != null
                 ? result.getThrowable().getMessage() : "Skipped";
-        ExtentTestManager.getTest().log(Status.SKIP, "Skipped: " + reason);
+        ensureTestNode(result).log(Status.SKIP, "Skipped: " + reason);
         log.warn("<--- SKIPPED: {} ({})", result.getMethod().getMethodName(), reason);
         ExtentTestManager.unload();
     }
@@ -74,5 +79,23 @@ public class TestListener implements ITestListener {
                 context.getPassedTests().size(),
                 context.getFailedTests().size(),
                 context.getSkippedTests().size());
+    }
+
+    /**
+     * Returns the current thread's ExtentTest, creating one on the fly if
+     * onTestStart never ran for this result. This happens when a test is
+     * skipped because an upstream @BeforeMethod/@BeforeClass step failed —
+     * TestNG still calls onTestSkipped, but never called onTestStart, so
+     * without this fallback ExtentTestManager.getTest() would return null
+     * and the next line would NPE instead of reporting the skip.
+     */
+    private ExtentTest ensureTestNode(ITestResult result) {
+        ExtentTest test = ExtentTestManager.getTest();
+        if (test == null) {
+            String name = result.getMethod().getMethodName();
+            ExtentTestManager.startTest(name, name);
+            test = ExtentTestManager.getTest();
+        }
+        return test;
     }
 }

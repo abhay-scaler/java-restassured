@@ -29,7 +29,7 @@ public class GetUsersTests extends BaseTest {
     @Description("Verifies the users list endpoint returns a correctly shaped, paginated response.")
     public void testGetUserListSuccess() {
 
-        Response response = client
+        Response response = client()
                 .queryParam("page", 2)
                 .get(UserEndpoints.USERS);
 
@@ -57,7 +57,7 @@ public class GetUsersTests extends BaseTest {
     @Severity(SeverityLevel.CRITICAL)
     public void testGetSingleUserSuccess() {
 
-        Response response = client
+        Response response = client()
                 .pathParam("id", 2)
                 .get(UserEndpoints.USER_BY_ID);
 
@@ -81,7 +81,7 @@ public class GetUsersTests extends BaseTest {
     @Description("Verifies that requesting a non-existent user returns HTTP 404 with an empty JSON object response.")
     public void testGetSingleUserNotFound() {
 
-        Response response = client
+        Response response = client()
                 .pathParam("id", 999999)
                 .get(UserEndpoints.USER_BY_ID);
 
@@ -112,7 +112,7 @@ public class GetUsersTests extends BaseTest {
     @Severity(SeverityLevel.MINOR)
     public void testPaginationConsistency() {
 
-        Response response = client
+        Response response = client()
                 .queryParam("page", 1)
                 .get(UserEndpoints.USERS);
 
@@ -140,7 +140,7 @@ public class GetUsersTests extends BaseTest {
     @Severity(SeverityLevel.MINOR)
     public void testResponseTimeSla() {
 
-        Response response = client.get(UserEndpoints.USERS);
+        Response response = client().get(UserEndpoints.USERS);
 
         ResponseValidator.of(response)
                 .assertStatusCode(200)

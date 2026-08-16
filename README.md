@@ -1,7 +1,44 @@
 # API Testing Framework
 
 A modular, industry-pattern Java + RestAssured + TestNG framework for REST API test automation.
-Demo tests run against the public [reqres.in](https://reqres.in) API so the suite works out of the box.
+Demo tests run against [reqres.in](https://reqres.in) — as of its 2025 relaunch this now requires
+a free personal API key (see **Setup** below), so this is a one-time step, not optional.
+
+## Setup
+
+1. **Java 21** and Maven 3.8+.
+2. Get a free API key at **https://reqres.in/signup**.
+3. Set it without editing any file:
+   ```bash
+   mvn clean test -Denv=qa -Dauth.api.key.value=YOUR_KEY
+   ```
+   or replace `REPLACE_WITH_YOUR_REQRES_API_KEY` in `src/test/resources/config/*.properties`.
+   Either way, **never commit a real key** — the checked-in files only ever hold the placeholder.
+
+## Changelog — fixes applied since the first draft
+
+| Issue | Fix |
+|---|---|
+| `RestClient` constructor called a no-arg `.request()` method that doesn't exist on `RequestSpecification` — compile error | Removed; `RequestSpecFactory.createDefault()` already returns a built, usable spec |
+| `logback.xml` used `<maxFileSize>` on a plain `TimeBasedRollingPolicy`, which doesn't support it | Switched to `SizeAndTimeBasedRollingPolicy` |
+| reqres.in now requires a real `x-api-key` (2025 relaunch) — the placeholder key shipped originally always got a 401 | Config now requires a real key (see Setup); properties file only holds a placeholder |
+| A couple of assertions assumed the old reqres.in response shape (empty 404 body, exact key set on create) | Updated to match current behavior: 404 returns `{}`, create response may include extra metadata fields |
+| `RestClient` held a `ThreadLocal<RequestSpecification>` internally, seemingly to guard against threading issues | Reverted to a plain field on `RestClient` — see the row below for where the real fix belongs |
+| **Critical**: `BaseTest.client` was a plain instance field. TestNG reuses *one instance* of each test class across all its `@Test` methods, even when `parallel="methods"` runs several of them concurrently on different threads — so two tests running at the same moment could overwrite each other's `client` reference and end up chaining `.pathParam()`/`.queryParam()` calls onto the *same* request spec. In practice this showed up as query/path parameters from one test leaking into another's request (e.g. a "get non-existent user" test silently hitting a real user's URL and getting 200 instead of 404) | `BaseTest.client` is now `ThreadLocal<RestClient>`-backed via a `client()` accessor, so each thread gets its own independent instance regardless of class-instance sharing. All test classes updated to call `client()` |
+| `TestListener` called `ExtentTestManager.getTest().log(...)` directly; if a `@BeforeMethod` fails, TestNG fires `onTestSkipped` without ever having called `onTestStart`, so `getTest()` returns `null` → `NullPointerException` | Added a fallback that creates the Extent node on the fly if one doesn't exist yet |
+| Request/response bodies were logged with a POJO's raw `toString()` instead of JSON, and headers (including `Authorization`/API keys) were logged unmasked | New shared `HttpLogFormatter`: pretty-prints JSON bodies and masks sensitive header values, used by both the SLF4J log filter and the Extent report filter |
+| Extent report showed pass/fail only — no request/response detail | New `ExtentReportingFilter` (below) |
+
+## Extent reports now show full request/response detail
+
+Every HTTP call made through `RestClient` now appears as a collapsible step under its test in the
+Extent HTML report — method, URL, headers (secrets masked), pretty-printed request body, status
+code, duration, and pretty-printed response body. This comes from a new filter,
+`filters/ExtentReportingFilter`, registered alongside the existing SLF4J and Allure filters in
+`RequestSpecFactory`. Nothing needs to change in test code — it's automatic for every request.
+
+If a request retries (transient 5xx), each attempt gets its own step in the report, so you can see
+exactly what came back on each try.
 
 ## Why it's structured this way
 
@@ -29,12 +66,12 @@ src/main/java/com/framework/
   dataproviders/ Reusable TestNG @DataProvider sources (JSON/CSV/Excel)
   endpoints/     Endpoint path constants
   exceptions/    FrameworkException, ApiException, ValidationException
-  filters/       Custom SLF4J request/response logging filter
+  filters/       SLF4J request/response log filter + Extent report filter
   listeners/     TestListener — bridges TestNG lifecycle to Extent + Allure
   models/        Request/response POJOs (Lombok + Jackson)
   reporting/     ExtentManager (suite-level) + ExtentTestManager (thread-local)
   retry/         RetryAnalyzer + RetryListener (auto-applied to all tests)
-  utils/         JsonUtils, RandomDataGenerator, FileReaderUtils, CsvUtils, ExcelUtils
+  utils/         JsonUtils, RandomDataGenerator, FileReaderUtils, CsvUtils, ExcelUtils, HttpLogFormatter
   validators/    ResponseValidator (fluent assertions), SchemaValidator (JSON Schema)
 
 src/test/java/com/framework/
@@ -50,8 +87,7 @@ src/test/resources/
 
 ## Prerequisites
 
-- Java 17+
-- Maven 3.8+
+- Java 21, Maven 3.8+ (see **Setup** above for the required reqres.in API key)
 - Allure CLI (optional, for `allure serve`) — https://docs.qameta.io/allure/#_installing_a_commandline
 
 ## Running tests
@@ -98,7 +134,7 @@ Both are generated automatically on every run — no extra flags needed.
 ```java
 @Test(groups = {"smoke"}, description = "GET single user returns 200")
 public void testGetUser() {
-    Response response = client.pathParam("id", 2).get(UserEndpoints.USER_BY_ID);
+    Response response = client().pathParam("id", 2).get(UserEndpoints.USER_BY_ID);
 
     ResponseValidator.of(response)
         .assertStatusCode(200)
@@ -123,4 +159,6 @@ public void testGetUser() {
 - **Retry only on 5xx**, never on 4xx — a 404/400 is the system under test telling you something real; masking it with a retry would hide genuine bugs.
 - **RetryAnalyzer is auto-attached** to every `@Test` via `IAnnotationTransformer`, so test authors don't repeat `retryAnalyzer = RetryAnalyzer.class` everywhere.
 - **ExtentTest is ThreadLocal**, `ExtentReports` itself is not — because parallel TestNG threads must not cross-log into each other's report nodes, but the underlying report writer is thread-safe and shouldn't be duplicated per thread.
+- **`RestClient` itself is a plain field, not ThreadLocal** — safe *because* `BaseTest.client()` is ThreadLocal-backed, guaranteeing each thread already owns an independent `RestClient` instance. If you ever refactor test setup so a `RestClient` could be shared across threads again, it needs the ThreadLocal treatment back.
+- **Sensitive headers are masked in every log/report** — `Authorization`, API keys, tokens, and cookies show as `abcd****(masked)` in both the SLF4J logs and the Extent report, so neither becomes a place secrets leak from.
 - **Config resolution order**: `-D` system property → env-specific `.properties` → `default.properties`, so CI can override one value without touching files.

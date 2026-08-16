@@ -38,7 +38,7 @@ public class CreateUserTests extends BaseTest {
                 .job(RandomDataGenerator.jobTitle())
                 .build();
 
-        Response response = client.post(UserEndpoints.USERS, requestBody);
+        Response response = client().post(UserEndpoints.USERS, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(201)
@@ -70,7 +70,7 @@ public class CreateUserTests extends BaseTest {
                 .job((String) userData.get("job"))
                 .build();
 
-        Response response = client.post(UserEndpoints.USERS, requestBody);
+        Response response = client().post(UserEndpoints.USERS, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(201);
@@ -91,7 +91,7 @@ public class CreateUserTests extends BaseTest {
     @Severity(SeverityLevel.MINOR)
     public void testCreateUserEmptyBody() {
 
-        Response response = client.post(UserEndpoints.USERS, "{}");
+        Response response = client().post(UserEndpoints.USERS, "{}");
 
         ResponseValidator.of(response)
                 .assertStatusCode(201)
@@ -111,7 +111,7 @@ public class CreateUserTests extends BaseTest {
                 .job(RandomDataGenerator.jobTitle())
                 .build();
 
-        Response response = client.post(UserEndpoints.USERS, requestBody);
+        Response response = client().post(UserEndpoints.USERS, requestBody);
 
         ResponseValidator.of(response)
                 .assertStatusCode(201);
