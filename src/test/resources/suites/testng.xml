@@ -14,6 +14,7 @@
             <class name="com.framework.tests.UpdateUserTests"/>
             <class name="com.framework.tests.DeleteUserTests"/>
             <class name="com.framework.tests.AuthTests"/>
+            <class name="com.framework.tests.ServiceClientTests"/>
         </classes>
     </test>
 

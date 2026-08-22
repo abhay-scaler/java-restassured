@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static io.restassured.RestAssured.given;
 
@@ -50,13 +51,35 @@ public class RestClient {
 
     private RequestSpecification spec;
 
+    /**
+     * Rebuilds {@link #spec} after each request completes (see
+     * {@link #resetSpec()}). Each constructor sets this to whatever
+     * produced the client's initial spec, so a client stays bound to the
+     * same service/spec for its whole lifetime instead of drifting back
+     * to the framework default after its first call.
+     */
+    private final Supplier<RequestSpecification> resetSupplier;
+
     // ============================================================
     // Constructors
     // ============================================================
 
     /** Creates a RestClient using the framework default specification. */
     public RestClient() {
-        this.spec = RequestSpecFactory.createDefault();
+        this.resetSupplier = RequestSpecFactory::createDefault;
+        this.spec = resetSupplier.get();
+    }
+
+    /**
+     * Creates a RestClient scoped to a named service (see
+     * {@code RequestSpecFactory.forService}), e.g. {@code new RestClient("orders")}.
+     */
+    public RestClient(String serviceName) {
+        if (serviceName == null || serviceName.isBlank()) {
+            throw new IllegalArgumentException("Service name cannot be null or blank");
+        }
+        this.resetSupplier = () -> RequestSpecFactory.forService(serviceName);
+        this.spec = resetSupplier.get();
     }
 
     /**
@@ -68,7 +91,8 @@ public class RestClient {
         if (customSpec == null) {
             throw new IllegalArgumentException("RequestSpecification cannot be null");
         }
-        this.spec = copySpecification(customSpec);
+        this.resetSupplier = () -> copySpecification(customSpec);
+        this.spec = resetSupplier.get();
     }
 
     // ============================================================
@@ -232,7 +256,7 @@ public class RestClient {
      * Retry behaviour: 2xx/3xx/4xx return immediately (a 4xx is the
      * system under test telling us something real — retrying would mask
      * a genuine bug). Only 5xx is treated as possibly transient and
-     * retried up to {@code max.retry.count} additional times. If every
+     * retried up to {@code http.retry.count} additional times. If every
      * attempt still comes back 5xx, an {@link ApiException} is thrown
      * rather than returning the failed response — a persistent 5xx means
      * the call itself didn't succeed, so it's treated as an execution
@@ -242,7 +266,7 @@ public class RestClient {
         validateRequest(method, endpoint);
 
         AppConfig config = ConfigManager.getConfig();
-        int maxAttempts = Math.max(1, config.maxRetryCount() + 1);
+        int maxAttempts = Math.max(1, config.httpRetryCount() + 1);
         long delay = Math.max(0, config.retryDelayMs());
 
         // Captured once: every retry attempt must reuse the exact same
@@ -318,7 +342,7 @@ public class RestClient {
     // ============================================================
 
     private void resetSpec() {
-        this.spec = RequestSpecFactory.createDefault();
+        this.spec = resetSupplier.get();
     }
 
     /** Builds an independent copy so the caller's original spec is never mutated. */

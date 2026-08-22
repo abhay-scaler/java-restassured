@@ -35,6 +35,15 @@ public final class ConfigManager {
     private static final ThreadLocal<AppConfig> CONFIG =
             ThreadLocal.withInitial(ConfigManager::load);
 
+    /**
+     * The same environment-file + system-property values used to build
+     * {@link #CONFIG}, kept as a raw map so {@link ServiceConfig} can look
+     * up "services.&lt;name&gt;.&lt;key&gt;" overrides that AppConfig has
+     * no static accessor for — without a second config-loading mechanism.
+     */
+    private static final ThreadLocal<Map<String, Object>> RAW_PROPERTIES =
+            new ThreadLocal<>();
+
     private ConfigManager() {
     }
 
@@ -43,6 +52,20 @@ public final class ConfigManager {
      */
     public static AppConfig getConfig() {
         return CONFIG.get();
+    }
+
+    /**
+     * Returns a single raw property value (environment file, overridden by
+     * any matching -D system property) for the current thread, or
+     * {@code null} if the key isn't set anywhere. Used for the
+     * "services.&lt;name&gt;.*" per-service key convention — see
+     * {@link ServiceConfig}.
+     */
+    public static String getRawProperty(String key) {
+        getConfig(); // ensures load() has populated RAW_PROPERTIES for this thread
+        Map<String, Object> properties = RAW_PROPERTIES.get();
+        Object value = properties != null ? properties.get(key) : null;
+        return value != null ? String.valueOf(value) : null;
     }
 
     /**
@@ -132,6 +155,8 @@ public final class ConfigManager {
          */
         properties.put("env", env);
 
+        RAW_PROPERTIES.set(properties);
+
         AppConfig config = ConfigFactory.create(
                 AppConfig.class,
                 properties
@@ -152,7 +177,8 @@ public final class ConfigManager {
         System.out.println("base.path = " + config.basePath());
         System.out.println("auth.type = " + config.authType());
         System.out.println("auth.api.key.name = " + config.apiKeyName());
-        System.out.println("max.retry.count = " + config.maxRetryCount());
+        System.out.println("http.retry.count = " + config.httpRetryCount());
+        System.out.println("test.retry.count = " + config.testRetryCount());
         System.out.println("========================================");
     }
 }

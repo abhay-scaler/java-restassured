@@ -52,7 +52,7 @@ exactly what came back on each try.
 | Contract checks | `validators/SchemaValidator.java` | JSON Schema validation against files in `resources/schemas/` |
 | Test data | `utils/RandomDataGenerator.java`, `dataproviders/DataProviders.java` | Faker-backed random data + JSON/CSV/Excel-driven data providers |
 | Reporting | `reporting/`, `listeners/TestListener.java` | Allure + ExtentReports wired automatically via TestNG listener |
-| Flaky-test resilience | `retry/RetryAnalyzer.java` + `retry/RetryListener.java` | Auto-applied retry on every `@Test`, capped by `max.retry.count` |
+| Flaky-test resilience | `retry/RetryAnalyzer.java` + `retry/RetryListener.java` | Auto-applied retry on every `@Test`, capped by `test.retry.count` (independent from `http.retry.count`, which bounds `RestClient`'s transport-level 5xx retry) |
 
 ## Project layout
 
@@ -71,7 +71,7 @@ src/main/java/com/framework/
   models/        Request/response POJOs (Lombok + Jackson)
   reporting/     ExtentManager (suite-level) + ExtentTestManager (thread-local)
   retry/         RetryAnalyzer + RetryListener (auto-applied to all tests)
-  utils/         JsonUtils, RandomDataGenerator, FileReaderUtils, CsvUtils, ExcelUtils, HttpLogFormatter
+  utils/         JsonUtils, RandomDataGenerator, FileReaderUtils, CsvUtils, HttpLogFormatter
   validators/    ResponseValidator (fluent assertions), SchemaValidator (JSON Schema)
 
 src/test/java/com/framework/

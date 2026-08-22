@@ -3,6 +3,7 @@ package com.framework.builders;
 import com.framework.auth.AuthProvider;
 import com.framework.config.AppConfig;
 import com.framework.config.ConfigManager;
+import com.framework.config.ServiceConfig;
 import com.framework.filters.ExtentReportingFilter;
 import com.framework.filters.RequestResponseLoggingFilter;
 import io.qameta.allure.restassured.AllureRestAssured;
@@ -60,6 +61,35 @@ public final class RequestSpecFactory {
     }
 
     /**
+     * Builds a spec for a named service, e.g. {@code forService("orders")}.
+     * Reads {@code services.orders.*} keys (base URL, auth, timeouts),
+     * falling back to today's top-level keys for anything the service
+     * hasn't overridden — so an unregistered service name still resolves
+     * to the framework's current single-service defaults.
+     *
+     * Adding a second real API means adding {@code services.<name>.*}
+     * properties, not touching this class.
+     */
+    public static RequestSpecification forService(String serviceName) {
+        ServiceConfig config = ServiceConfig.of(serviceName);
+
+        String baseUri = buildBaseUri(config.baseUrl(), config.basePath());
+
+        RequestSpecBuilder builder = new RequestSpecBuilder()
+                .setBaseUri(baseUri)
+                .setContentType(ContentType.JSON)
+                .setAccept(ContentType.JSON)
+                .setConfig(restAssuredConfig(config.connectionTimeout(), config.socketTimeout()))
+                .addFilter(new AllureRestAssured())
+                .addFilter(new RequestResponseLoggingFilter())
+                .addFilter(new ExtentReportingFilter());
+
+        AuthProvider.apply(builder, config);
+
+        return builder.build();
+    }
+
+    /**
      * Builds one deterministic base URI.
      *
      * Example:
@@ -70,8 +100,10 @@ public final class RequestSpecFactory {
      * https://reqres.in/api
      */
     private static String buildBaseUri(AppConfig config) {
-        String baseUrl = config.baseUrl();
+        return buildBaseUri(config.baseUrl(), config.basePath());
+    }
 
+    private static String buildBaseUri(String baseUrl, String basePath) {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalStateException(
                     "Configuration property 'base.url' must not be empty"
@@ -79,8 +111,6 @@ public final class RequestSpecFactory {
         }
 
         baseUrl = baseUrl.trim().replaceAll("/+$", "");
-
-        String basePath = config.basePath();
 
         if (basePath == null || basePath.isBlank() || "/".equals(basePath.trim())) {
             return baseUrl;
@@ -98,17 +128,15 @@ public final class RequestSpecFactory {
     }
 
     private static RestAssuredConfig restAssuredConfig(AppConfig config) {
+        return restAssuredConfig(config.connectionTimeout(), config.socketTimeout());
+    }
+
+    private static RestAssuredConfig restAssuredConfig(int connectionTimeout, int socketTimeout) {
         return RestAssuredConfig.config()
                 .httpClient(
                         HttpClientConfig.httpClientConfig()
-                                .setParam(
-                                        "http.connection.timeout",
-                                        config.connectionTimeout()
-                                )
-                                .setParam(
-                                        "http.socket.timeout",
-                                        config.socketTimeout()
-                                )
+                                .setParam("http.connection.timeout", connectionTimeout)
+                                .setParam("http.socket.timeout", socketTimeout)
                 )
                 .encoderConfig(
                         EncoderConfig.encoderConfig()

@@ -2,6 +2,7 @@ package com.framework.reporting;
 
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.reporter.ExtentSparkReporter;
+import com.framework.config.ConfigManager;
 
 import java.io.File;
 
@@ -9,9 +10,6 @@ import java.io.File;
  * Singleton owner of the ExtentReports instance.
  */
 public final class ExtentManager {
-
-    private static final String REPORT_PATH =
-            "target/extent-report/ExtentReport.html";
 
     private static final ExtentReports EXTENT =
             createInstance();
@@ -25,8 +23,10 @@ public final class ExtentManager {
 
     private static ExtentReports createInstance() {
 
+        String reportPath = ConfigManager.getConfig().extentReportPath();
+
         File reportFile =
-                new File(REPORT_PATH);
+                new File(reportPath);
 
         File parent =
                 reportFile.getParentFile();

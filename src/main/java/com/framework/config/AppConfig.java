@@ -32,9 +32,15 @@ public interface AppConfig extends Config {
     @DefaultValue("30000")
     int socketTimeout();
 
-    @Key("max.retry.count")
+    /** Bounds RestClient's transport-level retry of a single 5xx response. */
+    @Key("http.retry.count")
     @DefaultValue("2")
-    int maxRetryCount();
+    int httpRetryCount();
+
+    /** Bounds RetryAnalyzer's rerun of a whole failed @Test method. Independent from {@link #httpRetryCount()} so tuning one doesn't silently tune the other. */
+    @Key("test.retry.count")
+    @DefaultValue("2")
+    int testRetryCount();
 
     @Key("retry.delay.ms")
     @DefaultValue("1000")

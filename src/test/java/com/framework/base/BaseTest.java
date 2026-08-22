@@ -44,7 +44,8 @@ public abstract class BaseTest {
         log.info("Base Path        : [{}]", config.basePath());
         log.info("Auth Type        : [{}]", config.authType());
         log.info("API Key Header   : [{}]", config.apiKeyName());
-        log.info("Max Retry Count  : [{}]", config.maxRetryCount());
+        log.info("HTTP Retry Count : [{}]", config.httpRetryCount());
+        log.info("Test Retry Count : [{}]", config.testRetryCount());
         log.info("========================================");
     }
 
