@@ -258,12 +258,39 @@ Every request logs through SLF4J (`logback.xml`: console + size/time-rolled file
 hardcoded and silently ignoring that key). Sensitive headers (`Authorization`, API keys, tokens,
 cookies) are masked in all three via the shared `HttpLogFormatter`.
 
+**Every generated report is self-describing**, independent of which CI job or local command
+produced it: `ExtentManager.createInstance()` sets `Application`/`Environment` as report-level
+system info (read from `ConfigManager.getApplication()`/`getEnvironment()`, the same accessors
+`ConfigManager`'s own resolution already exposes); `TestListener` names every Extent node
+`ClassName.methodName` rather than the bare method name, and tags it with the active application as
+an Extent category via `assignCategory(...)`; `BaseTest.beforeSuite()` logs the same Application
+value into `execution.log` alongside the pre-existing Environment/Base URL/etc. banner. None of this
+required touching `ExtentTestManager`, `ExtentReportingFilter`, or Allure — verified empirically
+against real generated `ExtentReport.html` output for both applications (System/Environment panel,
+node naming, category tags, zero cross-app leakage), not just passing tests. Allure was left
+unchanged in this pass — it already carries class/thread metadata and app-distinguishing `@Epic`
+grouping automatically via the allure-testng integration, but its Environment widget remains
+unpopulated (no `environment.properties` is written) — that gap remains open, deliberately out of
+scope for the Extent-focused reporting work described here.
+
 ## CI/CD flow
 
-`.github/workflows/tests.yml`:
-- **PR / push to `main`:** smoke suite against QA — fast feedback, fails the check on any red test.
-- **Nightly (cron) / manual dispatch:** full regression suite; `workflow_dispatch` lets a developer
-  pick the environment and suite manually.
+`.github/workflows/tests.yml` runs two independent jobs:
+
+- **`smoke` — PR / push to `main`:** matrixed over `app: [appA, appB]` (`strategy.matrix`,
+  `fail-fast: false`), each running that application's smoke suite as its own independent check —
+  `./mvnw -B clean test -Psmoke -Dapp=${{ matrix.app }} -Denv=qa`. `fail-fast: false` is deliberate:
+  App A and App B are independent validation targets, so one app's known external failure
+  (reqres.in 403/429) must never cancel the other's job before it even runs (Restful Booker's 418).
+  Artifact names are disambiguated per app (`reports-smoke-<app>-<run>`).
+- **`regression` — nightly (cron) / manual dispatch:** runs the regression suite, but **not
+  multi-app-matrixed** — it never passes `-Dapp=`, so it always falls through to the pom's `appA`
+  default, regardless of trigger. `workflow_dispatch` lets a developer pick `env`/`suite` manually,
+  but there is no `app` input. This is a real, currently-open gap (App B's regression suite is never
+  exercised by CI on any schedule) — extending it to also cover App B would be the same
+  workflow-only pattern already applied to `smoke`: either a second job or a
+  `matrix: app: [appA, appB]` on this job too, passing `-Dapp=${{ matrix.app }}`; no framework or
+  `pom.xml` change would be required, since `-Dapp` is already a first-class Maven property.
 - Both jobs upload `allure-results`, `extent-reports`, and `surefire-reports` as build artifacts,
   always — even on failure — so a red build is diagnosable from the Actions UI alone.
 - The API key is read from a `QA_API_KEY` repository secret and passed via `-D`; **this secret must
@@ -271,10 +298,6 @@ cookies) are masked in all three via the shared `HttpLogFormatter`.
   in this repo can create it automatically.
 - `mvnw`/`mvnw.cmd` mean CI (and every contributor) builds with the exact Maven version this
   project expects, without relying on whatever happens to be installed globally.
-- **Not yet multi-app-aware:** the workflow doesn't pass `-Dapp=`, so every CI run currently
-  exercises App A only (the pom's default). Extending it to also run App B is a workflow-only
-  change — add a second job (or a matrix over `app: [appA, appB]`) passing `-Dapp=appB`; no
-  framework or `pom.xml` change is required, since `-Dapp` is already a first-class Maven property.
 
 ## Design principles
 

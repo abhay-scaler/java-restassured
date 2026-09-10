@@ -82,16 +82,35 @@ pass independently of both apps' live-API status.
 | Request/response bodies were logged with a POJO's raw `toString()` instead of JSON, and headers (including `Authorization`/API keys) were logged unmasked | New shared `HttpLogFormatter`: pretty-prints JSON bodies and masks sensitive header values, used by both the SLF4J log filter and the Extent report filter |
 | Extent report showed pass/fail only — no request/response detail | New `ExtentReportingFilter` (below) |
 
-## Extent reports now show full request/response detail
+## Reports identify application, environment, class/method, and full request/response detail
 
-Every HTTP call made through `RestClient` now appears as a collapsible step under its test in the
-Extent HTML report — method, URL, headers (secrets masked), pretty-printed request body, status
-code, duration, and pretty-printed response body. This comes from a new filter,
-`filters/ExtentReportingFilter`, registered alongside the existing SLF4J and Allure filters in
-`RequestSpecFactory`. Nothing needs to change in test code — it's automatic for every request.
+Every generated `ExtentReport.html` is self-describing — a reviewer can tell what it's a report
+*of* without knowing which CI job or local command produced it:
+
+- The report's System/Environment panel states **Application** (`appA`/`appB`) and **Environment**
+  (`dev`/`qa`/`stage`/`prod`) explicitly, set once via `ExtentManager.createInstance()` from
+  `ConfigManager.getApplication()`/`getEnvironment()`.
+- Every test node is named **`ClassName.methodName`** (e.g. `GetUsersTests.testGetSingleUserSuccess`),
+  not just the bare method name — so a suite that mixes several test classes still reads unambiguously.
+- Every test node is tagged with the active application as an Extent **category**
+  (`assignCategory("appA")`/`("appB")`), making runs filterable/attributable in the report UI itself.
+- `execution.log` (`target/logs/`) carries the same Application/Environment pair as a `BaseTest`
+  banner line at the start of every suite, so the plain-text log matches the HTML report.
+
+This is wired centrally in `listeners/TestListener.java` — individual test classes never call any
+reporting API directly, so this applies automatically to every test, in every app, with no test-code
+changes.
+
+Independently of the above, every HTTP call made through `RestClient` appears as a collapsible step
+under its test node — method, URL, headers (secrets masked), pretty-printed request body, status
+code, duration, and pretty-printed response body. This comes from `filters/ExtentReportingFilter`,
+registered alongside the existing SLF4J and Allure filters in `RequestSpecFactory`. Nothing needs to
+change in test code — it's automatic for every request.
 
 If a request retries (transient 5xx), each attempt gets its own step in the report, so you can see
-exactly what came back on each try.
+exactly what came back on each try. Failure/exception detail (the full stack trace) is preserved
+in the report node exactly as before these reporting changes — verified against a real generated
+report, not just green tests.
 
 ## Why it's structured this way
 
@@ -179,6 +198,15 @@ from test code become hard to audit.
 
 ## Running tests
 
+Three suite variants exist per application (`suites/<app>/{testng,smoke,regression}.xml`), scoped by
+TestNG `groups`, not by different code:
+
+| Suite | Selected by | What it runs |
+|---|---|---|
+| **Full/master** | `mvn clean test` (no profile) | Every class in that application's suite, no group filter — the complete TestNG configuration for that app |
+| **Smoke** | `-Psmoke` | A small subset of classes, `groups` filtered to `smoke` only — quick validation of the critical paths |
+| **Regression** | `-Pregression` | The full class list, `groups` filtered to `smoke`+`regression`+`negative` — broader coverage, including the app-agnostic `ConfigManagerTests`/`App<X>ServiceConfigTests` |
+
 ```bash
 # Full master suite (default app = appA, default env = qa)
 mvn clean test
@@ -198,6 +226,21 @@ mvn clean test -Dapp=appB -Pregression
 # Override a single config value ad-hoc
 mvn clean test -Dapp=appA -Denv=qa -Dbase.url=https://reqres.in
 ```
+
+## Continuous Integration
+
+`.github/workflows/tests.yml` runs two independent jobs — see `DESIGN.md`'s **CI/CD flow** for the
+full breakdown:
+
+- **PR / push to `main`** → the `smoke` job, matrixed over `app: [appA, appB]` with
+  `fail-fast: false` — each application's smoke suite runs as its own independent check, so App A's
+  known reqres.in failures never hide whether App B's suite ran at all, and vice versa.
+- **Nightly (cron) / manual dispatch** → the `regression` job — runs the regression suite, but
+  **only against App A** (it doesn't pass `-Dapp=`, so it falls through to the pom default); it
+  isn't multi-app-matrixed yet. `workflow_dispatch` lets you pick `env`/`suite` manually, but not
+  `app`.
+- Every job uploads `allure-results`, `extent-reports`, and `surefire-reports` as build artifacts,
+  always — even on failure.
 
 ## Reports
 
