@@ -146,4 +146,39 @@ public class GetUsersTests extends BaseTest {
                 .assertStatusCode(200)
                 .assertResponseTimeBelow(5000);
     }
+
+    @Test(
+            groups = {"regression"},
+            description = "GET /users?delay={seconds} returns the same paginated shape after the requested delay"
+    )
+    @Severity(SeverityLevel.MINOR)
+    @Description("Verifies reqres.in's documented delay parameter on the users list endpoint: the response body " +
+            "keeps the same paginated contract as GET /users, but is only returned after waiting at least the " +
+            "requested number of seconds.")
+    public void testGetUsersWithDelay() {
+
+        int delaySeconds = 2;
+
+        Response response = client()
+                .pathParam("seconds", delaySeconds)
+                .get(UserEndpoints.DELAYED_USERS);
+
+        ResponseValidator.of(response)
+                .assertStatusCode(200)
+                .assertContentType("application/json")
+                .assertArrayNotEmpty("data");
+
+        SchemaValidator.validate(response, "appA/user_list_schema.json");
+
+        assertThat(response.getTime())
+                .as("Response time should reflect the requested %d-second delay", delaySeconds)
+                .isGreaterThanOrEqualTo(delaySeconds * 1000L);
+
+        UserListResponse body = response.as(UserListResponse.class);
+
+        assertThat(body.getData()).allSatisfy(user -> {
+            assertThat(user.getId()).isPositive();
+            assertThat(user.getEmail()).contains("@");
+        });
+    }
 }
