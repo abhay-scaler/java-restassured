@@ -8,6 +8,12 @@ decision tree; adding a whole application is heavier than most tasks actually ne
 This is the same checklist as `DESIGN.md`'s **How to add a new application**, written as an
 actionable step list. `DESIGN.md` is the source of truth if the two ever disagree.
 
+Paths below like `apps/appC/`, `config/appC/`, `schemas/appC/`, `testdata/appC/`, and
+`suites/appC/` are shorthand for their real locations under `src/main/java/com/framework/`,
+`src/test/java/com/framework/`, and `src/test/resources/` — there is no top-level `apps/`
+directory in this repository. See [`ONBOARDING.md`](ONBOARDING.md) section 4 for the full mapping
+if you haven't read it yet.
+
 ## Checklist
 
 Assume the new application is called `appC` below — substitute your real name.
@@ -32,7 +38,13 @@ Assume the new application is called `appC` below — substitute your real name.
 6. **JSON Schemas** — add `src/test/resources/schemas/appC/*.json` for any contract checks.
 7. **Suite files** — add `src/test/resources/suites/appC/{testng,smoke,regression}.xml`,
    referencing only `com.framework.apps.appC.tests.*` classes. Register `TestListener` and
-   `RetryListener` the same way the existing suites do. Pick a `thread-count` deliberately — App A
+   `RetryListener` the same way the existing suites do — copy the `<listeners>` block from an
+   existing suite file (e.g. `suites/appA/testng.xml`) rather than writing it from scratch.
+   **This matters more than it looks**: omitting either `<listener>` entry does not fail the build
+   or fail any test — the suite runs and reports pass/fail via bare TestNG/Surefire output exactly
+   as if nothing were wrong — it just silently loses `test.retry.count` reruns and silently stops
+   populating Allure/ExtentReports for that suite. See [`ONBOARDING.md`](ONBOARDING.md) section 5
+   for the full explanation. Pick a `thread-count` deliberately — App A
    runs parallel (`3`/`5`); App B runs sequential (`1`) specifically because of its external 418
    quirk under concurrency. Don't copy a value blindly; justify it in a comment the way
    `suites/appB/testng.xml` does.

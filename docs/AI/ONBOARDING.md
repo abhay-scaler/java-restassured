@@ -73,6 +73,21 @@ src/test/resources/
 See `README.md`'s **Project layout** section for the complete tree, and `DESIGN.md`'s
 **Component responsibilities** table for what each shared class owns.
 
+**A note on the `apps/<app>/`-style shorthand**: this guide and every other `docs/AI/*.md` guide
+(plus `AGENTS.md`, `README.md`, `DESIGN.md`) routinely write `apps/<app>/`, `config/<app>/`,
+`schemas/<app>/`, `testdata/<app>/`, and `suites/<app>/` as short-hand for real project-layout
+locations — **not** repository-root directories. There is no top-level `apps/`, `config/`,
+`schemas/`, `testdata/`, or `suites/` folder in this repository. The actual roots, per the tree
+above, are:
+- `apps/<app>/` → `src/main/java/com/framework/apps/<app>/` (main code: endpoints, models, optional
+  `api/`) or `src/test/java/com/framework/apps/<app>/` (test code: `dataproviders/`, `tests/`) —
+  which one depends on whether the guide is talking about production or test code.
+- `config/<app>/`, `schemas/<app>/`, `testdata/<app>/`, `suites/<app>/` → all under
+  `src/test/resources/`.
+
+If a guide's shorthand path doesn't resolve where you expect, it's this mapping you're missing, not
+a broken reference — you don't need to hunt for a top-level `apps/` directory that doesn't exist.
+
 ## 5. Core concepts you need before writing anything
 
 - **`ConfigManager`** is the *only* class that reads `-Dapp`/`-Denv`. It resolves
@@ -84,10 +99,30 @@ See `README.md`'s **Project layout** section for the complete tree, and `DESIGN.
 - **Two separate retry knobs**: `RestClient` retries a single 5xx response
   (`http.retry.count`); `RetryAnalyzer` (auto-attached to every `@Test` via `RetryListener`)
   reruns a whole failed test method (`test.retry.count`). Never on 4xx — that's signal, not noise.
+- **Retry and reporting both depend on `<listener>` registration in the suite XML — and this is a
+  silent failure mode if you get it wrong.** `RetryAnalyzer` only reruns failed tests because
+  `RetryListener` is registered as `<listener class-name="com.framework.retry.RetryListener"/>` in
+  the suite file; `TestListener` (which bridges TestNG's lifecycle to Allure/ExtentReports) needs
+  the same kind of registration. Every suite file in this repo registers both today. If a new or
+  edited suite XML omits either `<listener>` entry, **tests still run and still pass or fail
+  normally** — there is no compile error and no obvious runtime error — but `test.retry.count`
+  silently stops rerunning failed tests, and Allure/ExtentReports silently stop being populated for
+  that suite. Always copy the `<listeners>` block from an existing suite (e.g.
+  `suites/appA/testng.xml`) rather than writing one from memory.
 - **Thread safety**: TestNG reuses one instance of each test class across parallel threads.
-  `BaseTest` holds its `RestClient` in a `ThreadLocal`; `ConfigManager` holds its `AppConfig` in a
-  `ThreadLocal` too. If you ever introduce shared mutable state in a class TestNG reuses across
-  threads, it needs the same treatment.
+  `BaseTest` owns a `ThreadLocal<RestClient>` with a per-test lifecycle: a fresh `RestClient` is
+  created in `@BeforeMethod` and removed in `@AfterMethod`, so each thread's in-flight test always
+  gets its own instance regardless of class-instance sharing. `ConfigManager` holds its `AppConfig`
+  in a `ThreadLocal` too, for the same reason.
+  `RestClient` itself is deliberately **not** `ThreadLocal`. It doesn't need to be: once
+  `BaseTest`'s per-test `ThreadLocal` lifecycle already guarantees exactly one thread owns one
+  `RestClient` instance for the duration of one test method, `RestClient` can be an ordinary,
+  reusable object *within* that lifecycle — making it `ThreadLocal` on top would add overhead
+  without adding any safety. See `DESIGN.md`'s design principles for the fuller rationale if you're
+  touching `clients/RestClient.java` or `BaseTest` itself.
+  If you ever introduce shared mutable state in a class TestNG reuses across threads, it needs the
+  same treatment `BaseTest` gives its client: `ThreadLocal`-backed, with a defined per-test
+  create/remove lifecycle — not just a plain field.
 - **Reporting is automatic**: every request through `RestClient` shows up in both the Allure and
   ExtentReports output with no test-code changes needed — see [`REPORTING.md`](REPORTING.md).
 - **Two applications, two known external quirks**: App A/reqres.in can return 429/403 depending on

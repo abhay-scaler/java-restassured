@@ -34,17 +34,34 @@ steps:
 ### `regression` — runs on `schedule` (nightly, `0 6 * * *` UTC) and `workflow_dispatch`
 
 ```yaml
+env:
+  RUN_ENV: ${{ github.event.inputs.env || 'qa' }}
+  RUN_SUITE: ${{ github.event.inputs.suite || 'regression' }}
 run: ./mvnw -B clean test -P"$RUN_SUITE" -Denv="$RUN_ENV" -Dauth.api.key.value=${{ secrets.QA_API_KEY }}
 ```
 
-- **Not matrixed over `app`.** It never passes `-Dapp=`, so it always falls through to the pom's
-  `appA` default (`<app>appA</app>` in `pom.xml`, the same value as
-  `ConfigManager.DEFAULT_APP`). **This means App B's regression suite is currently never exercised
-  on any schedule.** This is a known, currently-open gap — not something already fixed, and not
-  something to describe as fixed in any doc.
-- `workflow_dispatch` accepts `env` (`dev`/`qa`/`stage`, default `qa`) and `suite`
-  (`smoke`/`regression`, default `smoke`) inputs, but **no `app` input** — manual runs have the
-  same App-A-only limitation.
+**Which suite actually runs depends on the trigger — state this precisely, it is easy to get wrong:**
+
+- **`schedule` (nightly cron)** carries no `workflow_dispatch` inputs at all, so
+  `github.event.inputs.suite` is unset and `RUN_SUITE` falls through to its `|| 'regression'`
+  default. **The nightly cron run is the regression suite.**
+- **`workflow_dispatch` (manual run)** always resolves to an actual `suite` input value, because
+  GitHub Actions applies that input's own declared default (`default: "smoke"`, in the workflow's
+  `on.workflow_dispatch.inputs.suite` block) whenever you don't explicitly override it. So
+  `RUN_SUITE` is `"smoke"` unless you explicitly pick `regression` in the manual-run dialog.
+  **Manually dispatching this workflow without changing the `suite` input does NOT run
+  regression — it runs smoke.** This is the single most common way to misread this job; if you
+  intend to trigger a manual regression run, you must select `regression` explicitly.
+- **Not matrixed over `app`, regardless of which trigger fired it or which suite it runs.** This
+  job never passes `-Dapp=`, so it always falls through to the pom's `appA` default
+  (`<app>appA</app>` in `pom.xml`, the same value as `ConfigManager.DEFAULT_APP`) — for the nightly
+  cron run and for every manual dispatch alike. **This means App B's regression suite is currently
+  never exercised by CI, on any schedule or trigger.** This is a known, currently-open gap, not
+  something already fixed — it stays true unless a future, explicitly scoped change (see
+  **Extending the regression job to cover App B** below) adds an app matrix/input to this job.
+- `workflow_dispatch` also accepts `env` (`dev`/`qa`/`stage`, default `qa`), but there is **no
+  `app` input** at all — manual runs carry the same App-A-only limitation described above no
+  matter which suite you select.
 - Same artifact-upload behavior as `smoke`, named `reports-regression-<run_number>`.
 
 ## Two different kinds of parallelism — don't conflate them

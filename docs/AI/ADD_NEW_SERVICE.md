@@ -23,6 +23,20 @@ whatever's active on the current thread, so it's automatically scoped to whichev
 suite is running. This is why the mechanism composes cleanly with the app-selection layer instead
 of needing its own `-D` flag.
 
+### Malformed keys fail silently — this is the most common mistake here
+
+`ServiceConfig` looks up `services.<name>.<key>` as a literal string; there is no normalization of
+dashes, underscores, or casing. A typo like `services.orders.base-url` or
+`services.orders.base_url` is simply a key nothing ever writes to — `services.orders.base.url` is
+what `ServiceConfig`/`RequestSpecFactory.forService("orders")` actually reads — so the lookup
+returns nothing and **silently falls back to the application's own top-level `base.url`/`auth.*`
+instead of raising any error**. Nothing in this framework detects or warns about this at runtime:
+the service "works," requests go out, tests pass or fail based on real HTTP responses, and
+everything looks configured — it's just silently pointed at the application's default backend
+instead of the new service's. Because this fails silently rather than loudly, don't trust the
+properties file by inspection alone — verify the resolved value deterministically (see the
+**Verify before calling it done** checklist below).
+
 ## Checklist
 
 1. **Add config keys** to the relevant application's environment properties file(s)
@@ -35,7 +49,7 @@ of needing its own `-D` flag.
    services.orders.auth.token=${ORDERS_TOKEN}
    ```
    Not `base-url` or any other separator — `ConfigManager`/`ServiceConfig` only recognize the
-   dotted form.
+   dotted form. A typo here does not raise an error; see **Malformed keys fail silently** above.
 2. **Add endpoints** — a new `apps/<app>/endpoints/<Name>Endpoints.java` with the new service's
    paths, in that application's existing endpoints package.
 3. **Add request/response POJOs** under that application's `apps/<app>/models/`.
@@ -67,9 +81,13 @@ rather than something specific to your new service — raise it before implement
 
 ## Verify before calling it done
 
-- [ ] `services.<name>.*` keys use the dotted convention, not `-` or `_`.
-- [ ] A test using `new RestClient("<name>")` resolves to the right base URL/auth (add a
-      `ConfigManagerTests`-style assertion using `ConfigManager.resolveRawProperty` if you want a
-      unit-level guarantee without a live HTTP call).
+- [ ] `services.<name>.*` keys use the dotted convention, not `-` or `_` — a typo here will not
+      error, it will quietly resolve to the application's default config instead (see **Malformed
+      keys fail silently** above).
+- [ ] A deterministic resolution check confirms `services.<name>.*` actually resolves to the new
+      service's values, not the application's defaults — e.g. a `ConfigManagerTests`-style
+      assertion via `ConfigManager.resolveRawProperty(app, env, "services.<name>.base.url")`. This
+      is the recommended way to catch the silent-fallback failure mode above without depending on a
+      live HTTP call to notice.
 - [ ] No shared package outside `apps/<app>/` needed a change.
 - [ ] Run [`REVIEW_CHECKLIST.md`](REVIEW_CHECKLIST.md) before opening the PR.
