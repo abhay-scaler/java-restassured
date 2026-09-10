@@ -5,7 +5,7 @@ package com.framework.config;
  * per-environment properties file {@link AppConfig} already loads.
  *
  * Each value is looked up as {@code services.<name>.<key>} first (e.g.
- * {@code services.orders.base-url}), falling back to today's unprefixed
+ * {@code services.configtestonly.base.url}), falling back to today's unprefixed
  * top-level key (e.g. {@code base.url}) when the service hasn't overridden
  * it. That fallback is what lets the existing "users" API keep working
  * with zero new properties — only a second service needs new keys.
