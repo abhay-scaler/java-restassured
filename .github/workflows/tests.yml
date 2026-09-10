@@ -24,9 +24,15 @@ on:
 
 jobs:
   smoke:
-    name: Smoke suite (PR / push)
+    name: Smoke suite (PR / push) - ${{ matrix.app }}
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    strategy:
+      # One app's known external failure (reqres.in 403/429, Restful Booker 418)
+      # must not cancel the other app's job before it even runs.
+      fail-fast: false
+      matrix:
+        app: [appA, appB]
     steps:
       - uses: actions/checkout@v4
 
@@ -39,14 +45,14 @@ jobs:
 
       - name: Run smoke suite
         run: |
-          ./mvnw -B clean test -Psmoke -Denv=qa \
+          ./mvnw -B clean test -Psmoke -Dapp=${{ matrix.app }} -Denv=qa \
             -Dauth.api.key.value=${{ secrets.QA_API_KEY }}
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports-smoke-${{ github.run_number }}
+          name: reports-smoke-${{ matrix.app }}-${{ github.run_number }}
           path: |
             target/allure-results
             target/extent-reports

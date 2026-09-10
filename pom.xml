@@ -45,7 +45,11 @@
         <allure-maven.version>2.15.2</allure-maven.version>
 
         <!-- Runtime -->
-        <suiteXmlFile>src/test/resources/suites/testng.xml</suiteXmlFile>
+        <!-- The one place the default application is defined for Maven-driven runs;
+             ConfigManager.DEFAULT_APP is the equivalent for direct Java execution.
+             -Dapp=appB overrides this for a single run without editing the pom. -->
+        <app>appA</app>
+        <suiteXmlFile>src/test/resources/suites/${app}/testng.xml</suiteXmlFile>
         <env>qa</env>
     </properties>
 
@@ -211,8 +215,14 @@
                         <suiteXmlFile>${suiteXmlFile}</suiteXmlFile>
                     </suiteXmlFiles>
                     <systemPropertyVariables>
+                        <app>${app}</app>
                         <env>${env}</env>
                         <allure.results.directory>target/allure-results</allure.results.directory>
+                        <!-- Test-support only: lets ConfigManagerTests prove system-property override
+                             precedence deterministically (a real, always-present -D value vs. each
+                             app's own differing file value) without mutating System properties from
+                             inside a running test, which would be unsafe under parallel execution. -->
+                        <config.override.probe>system-property-wins</config.override.probe>
                     </systemPropertyVariables>
                     <argLine>
                         -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"
@@ -243,13 +253,13 @@
         <profile>
             <id>smoke</id>
             <properties>
-                <suiteXmlFile>src/test/resources/suites/smoke.xml</suiteXmlFile>
+                <suiteXmlFile>src/test/resources/suites/${app}/smoke.xml</suiteXmlFile>
             </properties>
         </profile>
         <profile>
             <id>regression</id>
             <properties>
-                <suiteXmlFile>src/test/resources/suites/regression.xml</suiteXmlFile>
+                <suiteXmlFile>src/test/resources/suites/${app}/regression.xml</suiteXmlFile>
             </properties>
         </profile>
     </profiles>

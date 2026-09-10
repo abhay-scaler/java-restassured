@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!--
+    thread-count is intentionally 1 (sequential), not this framework's usual 3/5.
+    Restful Booker's free public Heroku instance intermittently returns
+    418 responses to Java/RestAssured clients specifically (confirmed via a
+    minimal, framework-independent RestAssured script - plain curl to the
+    same endpoints never reproduces it, and reducing this to 1 did not
+    eliminate it either, so it is not a concurrency/load problem this
+    framework caused or can fix). Kept at 1 anyway as considerate default
+    load on a shared free demo instance; raise it back to 3+ if your
+    network path to restful-booker.herokuapp.com doesn't exhibit this.
+-->
+<suite name="Restful Booker API Testing Framework - Master Suite" parallel="methods" thread-count="1" verbose="1">
+
+    <listeners>
+        <listener class-name="com.framework.listeners.TestListener"/>
+        <listener class-name="com.framework.retry.RetryListener"/>
+    </listeners>
+
+    <test name="All App B Tests">
+        <classes>
+            <class name="com.framework.apps.appB.tests.AppBAuthTests"/>
+            <class name="com.framework.apps.appB.tests.AppBGetBookingTests"/>
+            <class name="com.framework.apps.appB.tests.AppBCreateBookingTests"/>
+            <class name="com.framework.apps.appB.tests.AppBUpdateBookingTests"/>
+            <class name="com.framework.apps.appB.tests.AppBDeleteBookingTests"/>
+            <class name="com.framework.apps.appB.tests.AppBBookingLifecycleTests"/>
+            <class name="com.framework.apps.appB.tests.AppBServiceConfigTests"/>
+            <class name="com.framework.config.ConfigManagerTests"/>
+        </classes>
+    </test>
+
+</suite>

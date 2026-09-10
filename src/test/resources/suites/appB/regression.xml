@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!--
+    thread-count is intentionally 1 (sequential) - see suites/appB/testng.xml
+    for why. Not a fix for that issue (sequential execution didn't remove it
+    either), just a considerate default on a shared free demo instance.
+-->
+<suite name="Restful Booker API Testing Framework - Regression Suite" parallel="methods" thread-count="1" verbose="1">
+
+    <listeners>
+        <listener class-name="com.framework.listeners.TestListener"/>
+        <listener class-name="com.framework.retry.RetryListener"/>
+    </listeners>
+
+    <test name="Regression Tests">
+        <groups>
+            <run>
+                <include name="smoke"/>
+                <include name="regression"/>
+                <include name="negative"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.framework.apps.appB.tests.AppBAuthTests"/>
+            <class name="com.framework.apps.appB.tests.AppBGetBookingTests"/>
+            <class name="com.framework.apps.appB.tests.AppBCreateBookingTests"/>
+            <class name="com.framework.apps.appB.tests.AppBUpdateBookingTests"/>
+            <class name="com.framework.apps.appB.tests.AppBDeleteBookingTests"/>
+            <class name="com.framework.apps.appB.tests.AppBBookingLifecycleTests"/>
+            <class name="com.framework.apps.appB.tests.AppBServiceConfigTests"/>
+            <class name="com.framework.config.ConfigManagerTests"/>
+        </classes>
+    </test>
+
+</suite>
