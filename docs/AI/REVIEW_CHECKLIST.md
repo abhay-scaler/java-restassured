@@ -13,7 +13,7 @@ This is a static, non-AI script — it never runs tests, never modifies a file, 
 whether a test passed or failed (see the script's own header comment). It mechanically covers part
 of **Architecture boundary**, **Config conventions**, and **Tests and suites** below; each item it
 covers is marked `[Check <letter>]` with the exact finding ID it reports on failure. A `PASS` with
-`Checks: 4, Failures: 0` clears those specific items — it does not replace the rest of this
+`Checks: 5, Failures: 0` clears those specific items — it does not replace the rest of this
 checklist. Everything not marked with a Check ID still needs a manual/human pass.
 
 ## Architecture boundary
@@ -79,8 +79,13 @@ checklist. Everything not marked with a Check ID still needs a manual/human pass
 
 ## Tests and suites
 
-- [ ] New test classes are actually registered in the relevant `suites/<app>/*.xml` `<classes>`
-      block(s) — an untagged/unregistered test silently never runs.
+- [ ] **[Check E]** `./tools/validate-framework.sh` reports no `E:test-class-not-in-suite` finding
+      — new test classes are actually registered in the relevant `suites/<app>/*.xml` `<classes>`
+      block(s) — an untagged/unregistered test silently never runs. Registration in any one of that
+      app's `testng.xml`/`smoke.xml`/`regression.xml` is sufficient (smoke is intentionally a
+      subset). Scoped to classes under `apps/<app>/tests/` only — a class deliberately meant to run
+      ad hoc, never as part of a live suite (like `ReportingMetadataTests`), belongs outside that
+      directory instead.
 - [ ] **[Check C]** `./tools/validate-framework.sh` reports no `C:suite-class-missing` finding —
       every `<class name="...">` referenced by a suite XML resolves to a real `.java` source file.
       This only checks that references resolve; it makes no judgment about whether a class *should*

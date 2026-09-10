@@ -238,9 +238,11 @@ Before opening a PR, run the repository's deterministic health checks from the r
 It's a static, non-AI script — it never runs tests and never modifies a file. It checks a handful
 of mechanical invariants that are easy to introduce by hand and easy to miss in review: no
 app-specific branching in shared/core code, every TestNG suite XML registering both required
-listeners, every suite's referenced test classes resolving to a real source file, and every
-`services.<name>.<key>` config key using a suffix `ServiceConfig` actually reads. Exit code `0` and
-`Checks: 4, Failures: 0` means all four passed. See
+listeners, every suite's referenced test classes resolving to a real source file, every
+`services.<name>.<key>` config key using a suffix `ServiceConfig` actually reads, and every
+`@Test`-bearing class under `apps/<app>/tests/` being registered in at least one of that
+application's suite XML files (registration in any one of `testng.xml`/`smoke.xml`/`regression.xml`
+is sufficient). Exit code `0` and `Checks: 5, Failures: 0` means all five passed. See
 [`docs/AI/REVIEW_CHECKLIST.md`](docs/AI/REVIEW_CHECKLIST.md) for how it fits into the full review
 process.
 

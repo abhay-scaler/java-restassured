@@ -23,7 +23,7 @@ if ! command -v xmllint >/dev/null 2>&1; then
     exit 2
 fi
 
-CHECKS=4
+CHECKS=5
 FAILURES=0
 declare -a FINDINGS=()
 
@@ -197,12 +197,67 @@ check_service_key_convention() {
 }
 
 # ---------------------------------------------------------------------------
+# Check E — every @Test-bearing class under apps/<app>/tests/ must be
+# registered in at least one of that application's suite XML files.
+#
+# The inverse of Check C: Check C ensures every suite <class name="...">
+# reference resolves to a real file; this ensures every real test class
+# under the documented apps/<app>/tests/ convention (see README.md "Project
+# layout" / DESIGN.md "Project structure") is reachable from at least one
+# suite variant for its own application. Registration in any one of
+# testng.xml/smoke.xml/regression.xml is sufficient — smoke.xml is
+# intentionally a subset and is never expected to list everything.
+#
+# Deliberately scoped to apps/<app>/tests/ only, not the whole test tree:
+# a class like src/test/java/com/framework/reporting/ReportingMetadataTests.java
+# lives outside that convention specifically because it is not meant to run
+# as part of any live suite (see its own Javadoc) — Check E does not see it.
+# ---------------------------------------------------------------------------
+check_test_class_suite_registration() {
+    local apps_dir="src/test/java/com/framework/apps"
+    local suites_root="src/test/resources/suites"
+    local app_path app tests_dir suite_dir suite f fqcn registered
+
+    [ -d "$apps_dir" ] || return
+
+    for app_path in "$apps_dir"/*/; do
+        [ -d "$app_path" ] || continue
+        app="$(basename "$app_path")"
+        tests_dir="${app_path}tests"
+        [ -d "$tests_dir" ] || continue
+
+        suite_dir="$suites_root/$app"
+        registered=""
+        if [ -d "$suite_dir" ]; then
+            while IFS= read -r suite; do
+                [ -f "$suite" ] || continue
+                xmllint --noout "$suite" 2>/dev/null || continue  # already reported by check B
+                registered="$registered
+$(xmllint --xpath '//class/@name' "$suite" 2>/dev/null | grep -oE '"[^"]*"' | tr -d '"')"
+            done < <(find "$suite_dir" -type f -name "*.xml" 2>/dev/null | sort)
+        fi
+
+        while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            strip_comments "$f" | grep -qE '@Test\b' || continue
+            fqcn="$(echo "$f" | sed -E 's#^src/test/java/##; s#\.java$##; s#/#.#g')"
+            if ! grep -qxF "$fqcn" <<< "$registered"; then
+                record_failure "E:test-class-not-in-suite" "$f" \
+                    "defines an @Test method but class '$fqcn' is not referenced by any suite XML under $suite_dir/ (testng.xml, smoke.xml, or regression.xml) — it will never run." \
+                    "Add <class name=\"$fqcn\"/> to the relevant <classes> block in one of $suite_dir/{testng,smoke,regression}.xml (see docs/AI/ADD_NEW_API.md step 7). A class meant to run ad hoc, never as part of a live suite, should live outside apps/<app>/tests/ instead — see src/test/java/com/framework/reporting/ReportingMetadataTests.java for the established pattern."
+            fi
+        done < <(find "$tests_dir" -type f -name "*.java" 2>/dev/null | sort)
+    done
+}
+
+# ---------------------------------------------------------------------------
 # Run all checks
 # ---------------------------------------------------------------------------
 check_shared_core_app_branching
 check_suite_listeners
 check_suite_class_references
 check_service_key_convention
+check_test_class_suite_registration
 
 echo
 if [ "$FAILURES" -eq 0 ]; then
@@ -217,6 +272,7 @@ if [ "$FAILURES" -eq 0 ]; then
     echo "  B. Every suite XML registers TestListener and RetryListener."
     echo "  C. Every suite <class name=\"...\"> resolves to a source file on disk."
     echo "  D. Every services.<name>.<key> key uses a suffix ServiceConfig actually reads."
+    echo "  E. Every @Test-bearing class under apps/<app>/tests/ is registered in that app's suites."
     exit 0
 else
     echo "Framework validation: FAIL"
