@@ -39,6 +39,7 @@ public abstract class BaseTest {
         AppConfig config = ConfigManager.getConfig();
 
         log.info("========================================");
+        log.info("Application      : [{}]", ConfigManager.getApplication());
         log.info("Test Environment : [{}]", ConfigManager.getEnvironment().getValue());
         log.info("Base URL         : [{}]", config.baseUrl());
         log.info("Base Path        : [{}]", config.basePath());

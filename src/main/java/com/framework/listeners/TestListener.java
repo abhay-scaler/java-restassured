@@ -2,6 +2,7 @@ package com.framework.listeners;
 
 import com.aventstack.extentreports.ExtentTest;
 import com.aventstack.extentreports.Status;
+import com.framework.config.ConfigManager;
 import com.framework.reporting.ExtentManager;
 import com.framework.reporting.ExtentTestManager;
 import io.qameta.allure.Allure;
@@ -33,7 +34,7 @@ public class TestListener implements ITestListener {
         String name = result.getMethod().getMethodName();
         String description = result.getMethod().getDescription() != null
                 ? result.getMethod().getDescription() : name;
-        ExtentTestManager.startTest(name, description);
+        startTestNode(result, description);
         log.info("---> Starting test: {}", name);
     }
 
@@ -93,9 +94,24 @@ public class TestListener implements ITestListener {
         ExtentTest test = ExtentTestManager.getTest();
         if (test == null) {
             String name = result.getMethod().getMethodName();
-            ExtentTestManager.startTest(name, name);
-            test = ExtentTestManager.getTest();
+            test = startTestNode(result, name);
         }
         return test;
+    }
+
+    /**
+     * Creates the Extent node for a test result, identified by
+     * "ClassName.methodName" rather than the bare method name (which is
+     * ambiguous once a suite mixes more than one test class), and tagged
+     * with the active application as an Extent category so runs stay
+     * filterable/attributable in the report regardless of which
+     * application's suite produced it.
+     */
+    private ExtentTest startTestNode(ITestResult result, String description) {
+        String qualifiedName = result.getTestClass().getRealClass().getSimpleName()
+                + "." + result.getMethod().getMethodName();
+        ExtentTestManager.startTest(qualifiedName, description);
+        ExtentTestManager.getTest().assignCategory(ConfigManager.getApplication());
+        return ExtentTestManager.getTest();
     }
 }

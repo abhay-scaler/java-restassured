@@ -67,6 +67,16 @@ public final class ExtentManager {
                 "ExtentReports"
         );
 
+        extent.setSystemInfo(
+                "Application",
+                ConfigManager.getApplication()
+        );
+
+        extent.setSystemInfo(
+                "Environment",
+                ConfigManager.getEnvironment().getValue()
+        );
+
         return extent;
     }
 
