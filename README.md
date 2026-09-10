@@ -227,6 +227,23 @@ mvn clean test -Dapp=appB -Pregression
 mvn clean test -Dapp=appA -Denv=qa -Dbase.url=https://reqres.in
 ```
 
+## Local validation
+
+Before opening a PR, run the repository's deterministic health checks from the repository root:
+
+```bash
+./tools/validate-framework.sh
+```
+
+It's a static, non-AI script — it never runs tests and never modifies a file. It checks a handful
+of mechanical invariants that are easy to introduce by hand and easy to miss in review: no
+app-specific branching in shared/core code, every TestNG suite XML registering both required
+listeners, every suite's referenced test classes resolving to a real source file, and every
+`services.<name>.<key>` config key using a suffix `ServiceConfig` actually reads. Exit code `0` and
+`Checks: 4, Failures: 0` means all four passed. See
+[`docs/AI/REVIEW_CHECKLIST.md`](docs/AI/REVIEW_CHECKLIST.md) for how it fits into the full review
+process.
+
 ## Continuous Integration
 
 `.github/workflows/tests.yml` runs two independent jobs — see `DESIGN.md`'s **CI/CD flow** for the

@@ -3,11 +3,28 @@
 Run this against your own diff before opening a PR, or use it as a reviewer. It encodes the rules
 in [`../../AGENTS.md`](../../AGENTS.md) as concrete things to grep for and check.
 
+## Run the validator first
+
+```bash
+./tools/validate-framework.sh
+```
+
+This is a static, non-AI script — it never runs tests, never modifies a file, and never decides
+whether a test passed or failed (see the script's own header comment). It mechanically covers part
+of **Architecture boundary**, **Config conventions**, and **Tests and suites** below; each item it
+covers is marked `[Check <letter>]` with the exact finding ID it reports on failure. A `PASS` with
+`Checks: 4, Failures: 0` clears those specific items — it does not replace the rest of this
+checklist. Everything not marked with a Check ID still needs a manual/human pass.
+
 ## Architecture boundary
 
-- [ ] `grep -rn "appA\|appB" src/main/java/com/framework/` outside `apps/appA/`/`apps/appB/`
-      returns **only** `ConfigManager.DEFAULT_APP = "appA"`. Any other hit is a shared/core class
-      branching on an application name — not acceptable, no exceptions.
+- [ ] **[Check A]** `./tools/validate-framework.sh` reports no `A:shared-core-app-branching`
+      finding. It scans every protected shared-core file (`auth/`, `builders/`, `clients/`,
+      `config/`, `constants/`, `dataproviders/`, `exceptions/`, `filters/`, `listeners/`,
+      `reporting/`, `retry/`, `utils/`, `validators/`, `BaseTest.java`), with comments stripped, for
+      an `appA`/`appB` reference outside the single accepted `ConfigManager.DEFAULT_APP = "appA"`
+      exception. Any other hit is a shared/core class branching on an application name — not
+      acceptable, no exceptions.
 - [ ] No new `if (app.equals(...))` / `switch` on an application-name string anywhere in a shared
       package (`auth/`, `builders/`, `clients/`, `config/`, `constants/`, `dataproviders/`
       (generic reader), `exceptions/`, `filters/`, `listeners/`, `reporting/`, `retry/`, `utils/`,
@@ -34,8 +51,13 @@ in [`../../AGENTS.md`](../../AGENTS.md) as concrete things to grep for and check
 
 ## Config conventions
 
-- [ ] New `services.<name>.*` keys use the dotted convention consistently with the rest of the
-      file (`services.orders.base.url`, never `base-url`).
+- [ ] **[Check D]** `./tools/validate-framework.sh` reports no `D:malformed-service-key` finding.
+      Every `services.<name>.<key>` entry in `src/test/resources/config/**/*.properties` must use
+      one of the ten suffixes `ServiceConfig` actually reads (`base.url`, `base.path`,
+      `connection.timeout`, `socket.timeout`, `auth.type`, `auth.username`, `auth.password`,
+      `auth.token`, `auth.api.key.name`, `auth.api.key.value`) — anything else (a typo like
+      `base-url`/`base_url`, or an unrecognized suffix) is silently ignored by `ServiceConfig` and
+      falls back to the app-level default with no error anywhere.
 - [ ] A new application has `config/<app>/{dev,qa,stage,prod}.properties` — all four environments,
       not just the one you tested against.
 - [ ] No new config-reading code bypasses `ConfigManager`/`ServiceConfig` (e.g. reading
@@ -59,6 +81,15 @@ in [`../../AGENTS.md`](../../AGENTS.md) as concrete things to grep for and check
 
 - [ ] New test classes are actually registered in the relevant `suites/<app>/*.xml` `<classes>`
       block(s) — an untagged/unregistered test silently never runs.
+- [ ] **[Check C]** `./tools/validate-framework.sh` reports no `C:suite-class-missing` finding —
+      every `<class name="...">` referenced by a suite XML resolves to a real `.java` source file.
+      This only checks that references resolve; it makes no judgment about whether a class *should*
+      be in that suite (that's the bullet above).
+- [ ] **[Check B]** If this PR adds or changes a suite XML, `./tools/validate-framework.sh` reports
+      no `B:missing-required-listener` finding — every suite XML registers both
+      `com.framework.listeners.TestListener` and `com.framework.retry.RetryListener`. Omitting
+      either doesn't fail the build or any test — it silently stops retry (`RetryListener`) or
+      Allure/Extent population (`TestListener`) for that suite.
 - [ ] Tests are tagged with the right TestNG `groups` (`smoke`/`regression`/`negative`) for the
       suites that should pick them up.
 - [ ] A schema-validated response uses `SchemaValidator.validate`/`validateStrict` against a real
