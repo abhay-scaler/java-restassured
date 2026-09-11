@@ -100,17 +100,15 @@ run: ./mvnw -B clean test -P"$RUN_SUITE" -Denv="$RUN_ENV" -Dauth.api.key.value=$
   **Manually dispatching this workflow without changing the `suite` input does NOT run
   regression — it runs smoke.** This is the single most common way to misread this job; if you
   intend to trigger a manual regression run, you must select `regression` explicitly.
-- **Not matrixed over `app`, regardless of which trigger fired it or which suite it runs.** This
-  job never passes `-Dapp=`, so it always falls through to the pom's `appA` default
-  (`<app>appA</app>` in `pom.xml`, the same value as `ConfigManager.DEFAULT_APP`) — for the nightly
-  cron run and for every manual dispatch alike. **This means App B's regression suite is currently
-  never exercised by CI, on any schedule or trigger.** This is a known, currently-open gap, not
-  something already fixed — it stays true unless a future, explicitly scoped change (see
-  **Extending the regression job to cover App B** below) adds an app matrix/input to this job.
+- **Matrixed over `app: [appA, appB]`** (`strategy.matrix`, `fail-fast: false`), the same pattern
+  `smoke` uses — each application's regression suite runs as its own independent GitHub Actions
+  job, passing `-Dapp=${{ matrix.app }}`, for both the nightly cron run and every manual dispatch.
+  `fail-fast: false` is deliberate here for the same reason it is on `smoke`: one app's known
+  external failure must not cancel the other app's job before it even runs.
 - `workflow_dispatch` also accepts `env` (`dev`/`qa`/`stage`, default `qa`), but there is **no
-  `app` input** at all — manual runs carry the same App-A-only limitation described above no
-  matter which suite you select.
-- Same artifact-upload behavior as `smoke`, named `reports-regression-<run_number>`.
+  `app` input** at all — a manual dispatch always runs both matrix legs regardless of which suite
+  you select.
+- Same artifact-upload behavior as `smoke`, named `reports-regression-<app>-<run_number>`.
 
 ## Two different kinds of parallelism — don't conflate them
 
@@ -122,14 +120,6 @@ run: ./mvnw -B clean test -P"$RUN_SUITE" -Denv="$RUN_ENV" -Dauth.api.key.value=$
 Raising a suite's `thread-count` does not add more CI jobs, and adding an app to the CI matrix
 does not change how many threads that app's own suite run uses. They are independent knobs that
 happen to both be called "parallel."
-
-## Extending the regression job to cover App B
-
-This is the same, already-identified pattern applied to `smoke`: either add a second job for App
-B, or add `strategy.matrix.app: [appA, appB]` to the existing `regression` job and pass
-`-Dapp=${{ matrix.app }}` the same way `smoke` does. No `pom.xml` change is required —
-`-Dapp` is already a first-class Maven property. Do not implement this speculatively; treat it as
-a real, scoped change (its own PR) with its own review, since it touches the CI workflow file.
 
 ## Secrets
 

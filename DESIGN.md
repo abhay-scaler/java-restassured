@@ -293,14 +293,12 @@ scope for the Extent-focused reporting work described here.
   finishes in seconds. It was deliberately built as its own job rather than a step inside `smoke`:
   `smoke` is matrixed over two apps, so a step there would run the validator twice per PR/push for
   a check that isn't app-scoped in that sense.
-- **`regression` — nightly (cron) / manual dispatch:** runs the regression suite, but **not
-  multi-app-matrixed** — it never passes `-Dapp=`, so it always falls through to the pom's `appA`
-  default, regardless of trigger. `workflow_dispatch` lets a developer pick `env`/`suite` manually,
-  but there is no `app` input. This is a real, currently-open gap (App B's regression suite is never
-  exercised by CI on any schedule) — extending it to also cover App B would be the same
-  workflow-only pattern already applied to `smoke`: either a second job or a
-  `matrix: app: [appA, appB]` on this job too, passing `-Dapp=${{ matrix.app }}`; no framework or
-  `pom.xml` change would be required, since `-Dapp` is already a first-class Maven property.
+- **`regression` — nightly (cron) / manual dispatch:** matrixed over `app: [appA, appB]`
+  (`strategy.matrix`, `fail-fast: false`), the same pattern `smoke` uses — each application's
+  regression suite runs as its own independent check, passing `-Dapp=${{ matrix.app }}`.
+  `workflow_dispatch` lets a developer pick `env`/`suite` manually, but there is no `app` input —
+  a manual dispatch always runs both matrix legs. Artifact names are disambiguated per app
+  (`reports-regression-<app>-<run>`).
 - `smoke` and `regression` upload `allure-results`, `extent-reports`, and `surefire-reports` as
   build artifacts, always — even on failure — so a red build is diagnosable from the Actions UI
   alone. `framework-health` produces no such output (it isn't a test run) and has no artifact step.

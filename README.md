@@ -269,10 +269,10 @@ the full breakdown:
   PR/push instead of relying on a contributor to run them by hand. No JDK, no Maven, no secrets, no
   call to reqres.in or Restful Booker — it only installs `libxml2-utils` (for `xmllint`) and runs
   the two scripts.
-- **Nightly (cron) / manual dispatch** → the `regression` job — runs the regression suite, but
-  **only against App A** (it doesn't pass `-Dapp=`, so it falls through to the pom default); it
-  isn't multi-app-matrixed yet. `workflow_dispatch` lets you pick `env`/`suite` manually, but not
-  `app`.
+- **Nightly (cron) / manual dispatch** → the `regression` job, matrixed over `app: [appA, appB]`
+  with `fail-fast: false` — each application's regression suite runs as its own independent check,
+  the same pattern `smoke` already uses. `workflow_dispatch` lets you pick `env`/`suite` manually,
+  but not `app` — a manual run always exercises both apps.
 - `smoke` and `regression` upload `allure-results`, `extent-reports`, and `surefire-reports` as
   build artifacts, always — even on failure. `framework-health` produces no such output (it isn't a
   test run), so it has nothing to upload.

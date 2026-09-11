@@ -76,9 +76,15 @@ jobs:
         run: ./tools/validate-framework.sh
 
   regression:
-    name: Regression suite (nightly / manual)
+    name: Regression suite (nightly / manual) - ${{ matrix.app }}
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    strategy:
+      # One app's known external failure (reqres.in 403/429, Restful Booker 418)
+      # must not cancel the other app's job before it even runs.
+      fail-fast: false
+      matrix:
+        app: [appA, appB]
     steps:
       - uses: actions/checkout@v4
 
@@ -94,14 +100,14 @@ jobs:
           RUN_ENV: ${{ github.event.inputs.env || 'qa' }}
           RUN_SUITE: ${{ github.event.inputs.suite || 'regression' }}
         run: |
-          ./mvnw -B clean test -P"$RUN_SUITE" -Denv="$RUN_ENV" \
+          ./mvnw -B clean test -P"$RUN_SUITE" -Dapp=${{ matrix.app }} -Denv="$RUN_ENV" \
             -Dauth.api.key.value=${{ secrets.QA_API_KEY }}
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports-regression-${{ github.run_number }}
+          name: reports-regression-${{ matrix.app }}-${{ github.run_number }}
           path: |
             target/allure-results
             target/extent-reports
