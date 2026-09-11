@@ -39,6 +39,7 @@
             <class name="com.framework.apps.appB.tests.AppBServiceConfigTests"/>
             <class name="com.framework.config.ConfigManagerTests"/>
             <class name="com.framework.reporting.AllureEnvironmentWriterTests"/>
+            <class name="com.framework.auth.AuthProviderTests"/>
         </classes>
     </test>
 
