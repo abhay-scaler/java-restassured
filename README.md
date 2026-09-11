@@ -250,20 +250,32 @@ is sufficient). Exit code `0` and `Checks: 5, Failures: 0` means all five passed
 [`docs/AI/REVIEW_CHECKLIST.md`](docs/AI/REVIEW_CHECKLIST.md) for how it fits into the full review
 process.
 
+The validator itself has a self-test, `./tools/validate-framework.selftest.sh`, which checks the
+checker: it runs each of the five checks above against small, isolated, synthetic fixtures to
+confirm they still fire on the violation they're meant to catch and stay quiet on valid input,
+independent of this repository's own current state.
+
 ## Continuous Integration
 
-`.github/workflows/tests.yml` runs two independent jobs — see `DESIGN.md`'s **CI/CD flow** for the
-full breakdown:
+`.github/workflows/tests.yml` runs three independent jobs — see `DESIGN.md`'s **CI/CD flow** for
+the full breakdown:
 
 - **PR / push to `main`** → the `smoke` job, matrixed over `app: [appA, appB]` with
   `fail-fast: false` — each application's smoke suite runs as its own independent check, so App A's
   known reqres.in failures never hide whether App B's suite ran at all, and vice versa.
+- **PR / push to `main`** → also the `framework-health` job (no matrix, no `needs:` on `smoke`),
+  which runs the validator's self-test and then the validator itself, in that order — the same
+  two commands described in **Local validation** above, now running automatically on every
+  PR/push instead of relying on a contributor to run them by hand. No JDK, no Maven, no secrets, no
+  call to reqres.in or Restful Booker — it only installs `libxml2-utils` (for `xmllint`) and runs
+  the two scripts.
 - **Nightly (cron) / manual dispatch** → the `regression` job — runs the regression suite, but
   **only against App A** (it doesn't pass `-Dapp=`, so it falls through to the pom default); it
   isn't multi-app-matrixed yet. `workflow_dispatch` lets you pick `env`/`suite` manually, but not
   `app`.
-- Every job uploads `allure-results`, `extent-reports`, and `surefire-reports` as build artifacts,
-  always — even on failure.
+- `smoke` and `regression` upload `allure-results`, `extent-reports`, and `surefire-reports` as
+  build artifacts, always — even on failure. `framework-health` produces no such output (it isn't a
+  test run), so it has nothing to upload.
 
 ## Reports
 

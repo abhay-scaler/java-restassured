@@ -4,7 +4,7 @@ What `.github/workflows/tests.yml` actually does today, what it doesn't cover, a
 it safely. This file is a protected file per [`../../AGENTS.md`](../../AGENTS.md) — read this
 guide fully before proposing a change to it.
 
-## The two jobs
+## The three jobs
 
 ### `smoke` — runs on `pull_request` and `push` to `main`
 
@@ -30,6 +30,54 @@ steps:
 - Uploads `target/allure-results`, `target/extent-reports`, `target/surefire-reports` as build
   artifacts named `reports-smoke-<app>-<run_number>`, always (`if: always()`), so a red build is
   diagnosable from the Actions UI without re-running anything locally.
+
+### `framework-health` — runs on `pull_request` and `push` to `main`
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+  - run: ./tools/validate-framework.selftest.sh
+  - run: ./tools/validate-framework.sh
+```
+
+- **Two stages, in this order:** first `tools/validate-framework.selftest.sh`, then
+  `tools/validate-framework.sh` itself. The self-test proves the validator's Checks A–E still
+  correctly detect their intended violations (and correctly stay quiet on valid input) against a
+  set of isolated, synthetic fixtures — it says nothing about this repository. The second step is
+  the validator proper, run against the real repository. Running the self-test first means a CI
+  failure there is diagnosed as "the validator itself is broken," not misread as "the repository
+  has a violation" — the two failure modes are kept clearly separate. Neither step has
+  `continue-on-error`; either one failing fails the job.
+- **Same trigger condition as `smoke`** (`github.event_name == 'pull_request' || github.event_name
+  == 'push'`), but **no matrix** — it runs exactly once per workflow invocation, not once per app.
+  It deliberately does **not** live as a step inside the `smoke` job: `smoke` is matrixed over
+  `app: [appA, appB]`, so a step added there would run the validator twice per PR/push (once per
+  matrix leg) for a check that isn't app-scoped in that sense — a dedicated job avoids that
+  duplication entirely.
+- **No `needs:`** — it runs independently of, and in parallel with, `smoke`. Nothing about its
+  outcome affects whether `smoke` runs, and vice versa.
+- **No JDK, no Maven, no `QA_API_KEY`, no secrets, no network call to reqres.in or Restful
+  Booker.** Both `tools/validate-framework.sh` and `tools/validate-framework.selftest.sh` are pure
+  bash + `xmllint`/`grep`/`sed`/`awk`/`find` — neither touches `pom.xml` nor runs `mvn`, so this job
+  skips `actions/setup-java` entirely and finishes in seconds, unlike `smoke`/`regression`. The
+  self-test's own fixtures are built under a throwaway `mktemp` directory it creates and removes
+  itself — nothing it does touches this checkout.
+- **`libxml2-utils` (which provides `xmllint`, used by the validator's suite-XML checks) is
+  installed explicitly**, rather than assumed present on the `ubuntu-latest` image — it does not
+  appear in GitHub's own documented preinstalled-package manifest for that runner, so relying on it
+  being there already would be an unverified assumption, not a confirmed fact.
+- **No artifact-upload step** — unlike `smoke`/`regression`, this job produces no
+  `allure-results`/`extent-reports`/`surefire-reports` (it isn't a test run), so there is nothing to
+  upload; this is an intentional difference from the other two jobs, not an oversight of the
+  "preserve the artifact upload step" guidance below.
+- **Not currently a hard merge gate.** This repository's branch-protection "required status checks"
+  feature is unavailable on its current GitHub plan/visibility (confirmed via `gh api
+  repos/<owner>/<repo>/branches/main/protection` → 403 "Upgrade to GitHub Pro or make this
+  repository public to enable this feature"). The job still fails loudly (no `continue-on-error`)
+  and shows a red ❌ on the PR's checks list when a check fails, but nothing in this repo's files can
+  make that failure block the merge button today — that would require a GitHub-side plan/visibility
+  change, not a workflow-file change.
 
 ### `regression` — runs on `schedule` (nightly, `0 6 * * *` UTC) and `workflow_dispatch`
 
@@ -85,17 +133,20 @@ a real, scoped change (its own PR) with its own review, since it touches the CI 
 
 ## Secrets
 
-`QA_API_KEY` must exist as a GitHub Actions repository secret before either job can authenticate
-against App A — nothing in this repo can create that secret automatically. It's passed via `-D`,
-never written to a file.
+`QA_API_KEY` must exist as a GitHub Actions repository secret before `smoke` or `regression` can
+authenticate against App A — nothing in this repo can create that secret automatically. It's passed
+via `-D`, never written to a file. `framework-health` needs no secret at all — it never calls App A,
+App B, or any other API.
 
 ## Before changing the workflow file
 
 1. Confirm which job(s) your change actually needs to touch — don't edit both if only one applies.
 2. Preserve `fail-fast: false` on any per-app matrix job — removing it would let one app's known
    external failure hide whether the other app's job ran at all.
-3. Preserve the artifact upload step (`if: always()`) on any new job — a red build must stay
-   diagnosable from the Actions UI.
+3. Preserve the artifact upload step (`if: always()`) on any new job that runs tests and produces
+   Allure/Extent/Surefire output — a red build must stay diagnosable from the Actions UI. A
+   non-test static-check job like `framework-health`, which produces no such output, has no
+   artifact step to preserve; its own log output is the diagnostic.
 4. Update this file and, if the change affects what's described there, `README.md`'s
    **Continuous Integration** section and `DESIGN.md`'s **CI/CD flow** section, in the same PR.
 5. This file is on the protected-files list — get explicit approval before merging a change to it.

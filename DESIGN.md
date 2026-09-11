@@ -275,7 +275,7 @@ scope for the Extent-focused reporting work described here.
 
 ## CI/CD flow
 
-`.github/workflows/tests.yml` runs two independent jobs:
+`.github/workflows/tests.yml` runs three independent jobs:
 
 - **`smoke` — PR / push to `main`:** matrixed over `app: [appA, appB]` (`strategy.matrix`,
   `fail-fast: false`), each running that application's smoke suite as its own independent check —
@@ -283,6 +283,16 @@ scope for the Extent-focused reporting work described here.
   App A and App B are independent validation targets, so App A's known external failure
   (reqres.in 403/429) must never cancel App B's job before it even runs, and vice versa.
   Artifact names are disambiguated per app (`reports-smoke-<app>-<run>`).
+- **`framework-health` — PR / push to `main`:** same trigger condition as `smoke`, but no matrix
+  (runs exactly once) and no `needs:` on `smoke` — it's fully independent, running in parallel.
+  Checks out the repo, installs `libxml2-utils` (for `xmllint`), then runs
+  `./tools/validate-framework.sh` — the same static, non-AI, mechanical-invariant checker described
+  in **Validation results and known external limitations** below and in
+  [`docs/AI/CI.md`](docs/AI/CI.md). No JDK, no Maven, no `QA_API_KEY`, no call to reqres.in or
+  Restful Booker — it never touches `pom.xml`, so it skips `actions/setup-java` entirely and
+  finishes in seconds. It was deliberately built as its own job rather than a step inside `smoke`:
+  `smoke` is matrixed over two apps, so a step there would run the validator twice per PR/push for
+  a check that isn't app-scoped in that sense.
 - **`regression` — nightly (cron) / manual dispatch:** runs the regression suite, but **not
   multi-app-matrixed** — it never passes `-Dapp=`, so it always falls through to the pom's `appA`
   default, regardless of trigger. `workflow_dispatch` lets a developer pick `env`/`suite` manually,
@@ -291,13 +301,18 @@ scope for the Extent-focused reporting work described here.
   workflow-only pattern already applied to `smoke`: either a second job or a
   `matrix: app: [appA, appB]` on this job too, passing `-Dapp=${{ matrix.app }}`; no framework or
   `pom.xml` change would be required, since `-Dapp` is already a first-class Maven property.
-- Both jobs upload `allure-results`, `extent-reports`, and `surefire-reports` as build artifacts,
-  always — even on failure — so a red build is diagnosable from the Actions UI alone.
+- `smoke` and `regression` upload `allure-results`, `extent-reports`, and `surefire-reports` as
+  build artifacts, always — even on failure — so a red build is diagnosable from the Actions UI
+  alone. `framework-health` produces no such output (it isn't a test run) and has no artifact step.
 - The API key is read from a `QA_API_KEY` repository secret and passed via `-D`; **this secret must
-  be added in the repo's GitHub Actions settings before the workflow can authenticate** — nothing
-  in this repo can create it automatically.
+  be added in the repo's GitHub Actions settings before `smoke` or `regression` can authenticate** —
+  nothing in this repo can create it automatically. `framework-health` needs no secret.
 - `mvnw`/`mvnw.cmd` mean CI (and every contributor) builds with the exact Maven version this
   project expects, without relying on whatever happens to be installed globally.
+- `framework-health`'s pass/fail is visible as a normal GitHub Actions check on every PR, but it is
+  not currently a hard merge gate: this repository's branch-protection "required status checks"
+  feature is unavailable on its current GitHub plan/visibility, independent of anything in this
+  workflow file.
 
 ## Design principles
 

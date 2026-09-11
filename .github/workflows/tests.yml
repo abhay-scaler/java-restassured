@@ -59,6 +59,22 @@ jobs:
             target/surefire-reports
           if-no-files-found: ignore
 
+  framework-health:
+    name: Framework health validator
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure xmllint is available
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
+      - name: Run validator self-test
+        run: ./tools/validate-framework.selftest.sh
+
+      - name: Run framework-health validator
+        run: ./tools/validate-framework.sh
+
   regression:
     name: Regression suite (nightly / manual)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
