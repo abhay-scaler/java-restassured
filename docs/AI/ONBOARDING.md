@@ -31,22 +31,22 @@ statement of this rule.
 
 ```bash
 # Default: appA + qa
-mvn clean test
+./mvnw clean test
 
 # Explicit app + env
-mvn test -Dapp=appA -Denv=qa
-mvn test -Dapp=appB -Denv=qa
+./mvnw test -Dapp=appA -Denv=qa
+./mvnw test -Dapp=appB -Denv=qa
 
 # Smoke / regression profiles, per app
-mvn test -Dapp=appA -Psmoke
-mvn test -Dapp=appB -Pregression
+./mvnw test -Dapp=appA -Psmoke
+./mvnw test -Dapp=appB -Pregression
 ```
 
 `-Dapp=` selects both the config directory (`src/test/resources/config/<app>/`) and the TestNG
 suite file (`src/test/resources/suites/<app>/{testng,smoke,regression}.xml`). An unrecognized
 `-Dapp=` fails suite resolution immediately — it does not silently fall back to App A.
 
-After a run: open `target/extent-reports/ExtentReport.html`, or `mvn allure:serve` for Allure.
+After a run: open `target/extent-reports/ExtentReport.html`, or `./mvnw allure:serve` for Allure.
 
 ## 4. Project layout (the parts you'll touch most)
 

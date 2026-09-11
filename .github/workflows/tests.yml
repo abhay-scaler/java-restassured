@@ -22,6 +22,12 @@ on:
         type: choice
         options: [smoke, regression]
 
+# Least-privilege default for a public repository: none of the jobs below write to
+# the repository, so read-only access to its contents is all GITHUB_TOKEN needs.
+# Artifact upload is unaffected — it authenticates with its own runtime token.
+permissions:
+  contents: read
+
 jobs:
   smoke:
     name: Smoke suite (PR / push) - ${{ matrix.app }}

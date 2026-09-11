@@ -42,6 +42,40 @@ missing its suite files.
 (`src/test/resources/suites/${app}/testng.xml`, or `smoke.xml`/`regression.xml` under the matching
 profile) resolves to.
 
+## `IllegalStateException: Unknown auth.type '<value>'. Supported values: [NONE, BASIC, BEARER_TOKEN, API_KEY, OAUTH2, DIGEST]`
+
+**Cause:** The resolved `auth.type` — from the active `config/<app>/<env>.properties`, a
+`services.<name>.auth.type` override, or a `-Dauth.type=` flag — isn't one of the six `AuthType`
+values. `AuthProvider` throws while the request spec is being built, before any HTTP call is made;
+it deliberately does **not** fall back to `NONE`, because a silent downgrade to no auth would only
+surface later as a confusing remote 401/403.
+
+**Fix:** Set `auth.type` to one of `NONE`, `BASIC`, `BEARER_TOKEN`, `API_KEY`, `OAUTH2`, `DIGEST`.
+Matching is case-insensitive (`api_key` resolves fine), but surrounding whitespace is not trimmed —
+a trailing space makes the value unrecognized, which is why the message quotes it. An empty or
+whitespace-only value is rejected the same way and does not mean `NONE`; write `NONE` explicitly if
+that's what you intend.
+
+## `IllegalStateException: Configuration key '<key>' is required for the configured auth.type but is missing or blank.`
+
+**Cause:** The resolved `auth.type` needs a credential whose value is null, empty, or
+whitespace-only. `AuthProvider` validates this locally rather than sending a blank credential and
+letting the target API reject it as a confusing remote 401/403. Which key is required depends on
+the type:
+
+| `auth.type` | Required keys |
+|---|---|
+| `API_KEY` | `auth.api.key.value` |
+| `BEARER_TOKEN`, `OAUTH2` | `auth.token` |
+| `BASIC`, `DIGEST` | `auth.username`, `auth.password` |
+| `NONE` | none |
+
+**Fix:** Supply the named key via the active `config/<app>/<env>.properties`, a
+`services.<name>.<key>` override, or `-D<key>=value` — e.g.
+`-Dauth.api.key.value=YOUR_KEY` for App A. The message names the canonical configuration key only,
+never the value. Note that a service-level override which is explicitly blank does **not** fall
+back to the application-level value — remove the override rather than blanking it.
+
 ## `403 invalid_api_key` / `429 rate_limit_exceeded` against App A (reqres.in)
 
 **Not a framework bug.** This is App A's documented external limitation — see

@@ -142,6 +142,21 @@ is no token-fetch/cache/refresh flow implemented. That's intentional: no service
 needs one yet, and building a real client-credentials flow with nothing to validate it against
 would be speculative. Implement it against the first service that actually requires it.
 
+**Invalid auth configuration fails locally, before any request is sent.** An `auth.type` that
+doesn't match a supported value throws `IllegalStateException` naming both the offending value and
+the supported set (`Unknown auth.type 'X'. Supported values: [NONE, BASIC, BEARER_TOKEN, API_KEY,
+OAUTH2, DIGEST]`) instead of silently degrading to `NONE`. Each type additionally requires the
+credentials it actually uses to be present and non-blank — `auth.api.key.value` for `API_KEY`,
+`auth.token` for `BEARER_TOKEN`/`OAUTH2`, `auth.username` plus `auth.password` for
+`BASIC`/`DIGEST` — rejecting null, empty, and whitespace-only values with the offending key named
+(`Configuration key 'auth.token' is required for the configured auth.type but is missing or
+blank.`). Validation runs before the credential reaches RestAssured, and the message names the
+configuration key only, never a credential value. `NONE` still requires no credentials, and every
+previously valid configuration behaves exactly as it did before: the change only converts what used
+to be a silent downgrade to no auth, or a confusing remote 401/403, into a local and actionable
+failure. Both the `AppConfig` and `ServiceConfig` paths inherit this, since they share one
+implementation.
+
 ## Configuration and environment strategy
 
 Configuration resolution has two independent dimensions, both resolved by the same `ConfigManager`:
@@ -294,9 +309,13 @@ both applications alongside `ConfigManagerTests`.
 - **`framework-health` — PR / push to `main`:** same trigger condition as `smoke`, but no matrix
   (runs exactly once) and no `needs:` on `smoke` — it's fully independent, running in parallel.
   Checks out the repo, installs `libxml2-utils` (for `xmllint`), then runs
-  `./tools/validate-framework.sh` — the same static, non-AI, mechanical-invariant checker described
-  in **Validation results and known external limitations** below and in
-  [`docs/AI/CI.md`](docs/AI/CI.md). No JDK, no Maven, no `QA_API_KEY`, no call to reqres.in or
+  `./tools/validate-framework.selftest.sh` followed by `./tools/validate-framework.sh`, in that
+  order — the self-test first proves the validator's own Checks A–E still fire on their intended
+  violations (and stay quiet on valid input) against isolated synthetic fixtures, so a failure
+  there reads as "the validator itself is broken" rather than "this repository has a violation";
+  the second step then runs that same static, non-AI, mechanical-invariant checker against the real
+  repository. Both are described in **Validation results and known external limitations** below and
+  in [`docs/AI/CI.md`](docs/AI/CI.md). No JDK, no Maven, no `QA_API_KEY`, no call to reqres.in or
   Restful Booker — it never touches `pom.xml`, so it skips `actions/setup-java` entirely and
   finishes in seconds. It was deliberately built as its own job rather than a step inside `smoke`:
   `smoke` is matrixed over two apps, so a step there would run the validator twice per PR/push for

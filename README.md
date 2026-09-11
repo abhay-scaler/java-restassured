@@ -1,5 +1,7 @@
 # API Testing Framework
 
+[![API Tests](https://github.com/venusabhay/java-restassured/actions/workflows/tests.yml/badge.svg)](https://github.com/venusabhay/java-restassured/actions/workflows/tests.yml)
+
 A modular, industry-pattern Java + RestAssured + TestNG framework for REST API test automation —
 **multi-application by design**. The shared/core framework (config resolution, request building,
 auth, HTTP execution, retry, validation, reporting) never knows which application is running; only
@@ -11,13 +13,51 @@ applications proving that boundary holds:
 | `appA` (default) | [reqres.in](https://reqres.in) | Users CRUD |
 | `appB` | [Restful Booker](https://restful-booker.herokuapp.com) | Hotel booking lifecycle (auth, create/get/update/delete) |
 
+## Start here
+
+Clone the repository, then run the coverage that needs no credentials and no network at all:
+
+```bash
+./mvnw -B test -Dtest=ConfigManagerTests,AuthProviderTests
+```
+
+That exercises the framework's own deterministic tests — configuration resolution, cross-application
+isolation, and auth-configuration validation — with no API key and no outbound HTTP call. The static
+repository health checks are equally self-contained (bash + `xmllint`, no JDK required):
+
+```bash
+./tools/validate-framework.selftest.sh && ./tools/validate-framework.sh
+```
+
+Next, run a real suite against a public demo API, still without any credential of your own:
+
+```bash
+./mvnw -B clean test -Psmoke -Dapp=appB -Denv=qa
+```
+
+App A is the only part that needs a key you supply yourself — see **Setup** below.
+
+### What requires what
+
+| Tier | Command | Requires |
+|---|---|---|
+| Framework tests — deterministic, network-free | `./mvnw -B test -Dtest=ConfigManagerTests,AuthProviderTests` | Nothing: no key, no network |
+| App B smoke / regression | `./mvnw clean test -Psmoke -Dapp=appB -Denv=qa` | Network access to Restful Booker's public demo API. Its demo credentials (`admin`/`password123`, publicly documented by that service) are already checked in |
+| App A smoke / regression | `./mvnw clean test -Psmoke -Dapp=appA -Denv=qa -Dauth.api.key.value=YOUR_KEY` | Network access to reqres.in **and your own free API key** (supplied as the `QA_API_KEY` secret in CI) |
+
+App A's tests genuinely depend on an external third-party API (reqres.in) and on a key you register
+yourself. Without a valid key they fail with `403 invalid_api_key` — that is the external dependency
+behaving as documented, not a framework defect. See **Known external API limitations** below.
+
 ## Setup
 
-1. **Java 21** and Maven 3.8+.
+1. **Java 21.** A local Maven install is *not* required — the repository ships the Maven wrapper
+   (`./mvnw`), which uses the exact Maven version this project expects, and every command below
+   uses it. A local Maven 3.8+ also works if you prefer `mvn`.
 2. App A needs a free API key (as of reqres.in's 2025 relaunch): sign up at
    **https://reqres.in/signup**, then either pass it ad-hoc:
    ```bash
-   mvn clean test -Dapp=appA -Denv=qa -Dauth.api.key.value=YOUR_KEY
+   ./mvnw clean test -Dapp=appA -Denv=qa -Dauth.api.key.value=YOUR_KEY
    ```
    or replace `REPLACE_WITH_YOUR_REQRES_API_KEY` in `src/test/resources/config/appA/*.properties`.
    Either way, **never commit a real key** — the checked-in files only ever hold the placeholder.
@@ -26,22 +66,22 @@ applications proving that boundary holds:
 
 ## Selecting an application
 
-Every `mvn test` run resolves **which application** (`-Dapp=`) and **which environment**
+Every `./mvnw test` run resolves **which application** (`-Dapp=`) and **which environment**
 (`-Denv=`) to run against; both default if omitted:
 
 ```bash
 # Default: appA + qa (same as explicitly passing both)
-mvn clean test
+./mvnw clean test
 
 # Explicit application + environment
-mvn test -Dapp=appA -Denv=qa
-mvn test -Dapp=appB -Denv=qa
+./mvnw test -Dapp=appA -Denv=qa
+./mvnw test -Dapp=appB -Denv=qa
 
 # Smoke / regression suites, per application
-mvn test -Dapp=appA -Psmoke
-mvn test -Dapp=appA -Pregression
-mvn test -Dapp=appB -Psmoke
-mvn test -Dapp=appB -Pregression
+./mvnw test -Dapp=appA -Psmoke
+./mvnw test -Dapp=appA -Pregression
+./mvnw test -Dapp=appB -Psmoke
+./mvnw test -Dapp=appB -Pregression
 ```
 
 `-Dapp=` selects both the TestNG suite file (`suites/<app>/{testng,smoke,regression}.xml`) and the
@@ -51,10 +91,11 @@ a clear "suite file is not a valid file" error; it does not silently fall back t
 
 ## Known external API limitations
 
-- **App A / reqres.in:** the configured API key returns HTTP 403 `invalid_api_key`. Get a fresh key
-  (see **Setup**) if you hit this — it means the key is invalid/revoked/quota-exhausted, not that
-  the framework is broken. This one is genuinely external — verified by isolating it down to a
-  plain curl/RestAssured script outside this codebase.
+- **App A / reqres.in:** the checked-in value is only a placeholder, so App A returns HTTP 403
+  `invalid_api_key` until you supply a key of your own (see **Setup**). The same 403 — or a 429
+  `rate_limit_exceeded` — also appears once a real key is invalid, revoked, or past its free-tier
+  quota. Either way it means the key, not the framework. This one is genuinely external — verified
+  by isolating it down to a plain curl/RestAssured script outside this codebase.
 
 **App B / Restful Booker's HTTP 418 was *not* external** — it was a real framework bug, now fixed.
 `RequestSpecFactory` sent RestAssured's `ContentType.JSON` as the `Accept` header, which expands to
@@ -197,7 +238,8 @@ from test code become hard to audit.
 
 ## Prerequisites
 
-- Java 21, Maven 3.8+ (see **Setup** above for the required reqres.in API key)
+- Java 21. Maven is optional — the bundled `./mvnw` wrapper handles it (see **Setup** above, which
+  also covers App A's reqres.in API key)
 - Allure CLI (optional, for `allure serve`) — https://docs.qameta.io/allure/#_installing_a_commandline
 
 ## Running tests
@@ -207,28 +249,28 @@ TestNG `groups`, not by different code:
 
 | Suite | Selected by | What it runs |
 |---|---|---|
-| **Full/master** | `mvn clean test` (no profile) | Every class in that application's suite, no group filter — the complete TestNG configuration for that app |
+| **Full/master** | `./mvnw clean test` (no profile) | Every class in that application's suite, no group filter — the complete TestNG configuration for that app |
 | **Smoke** | `-Psmoke` | A small subset of classes, `groups` filtered to `smoke` only — quick validation of the critical paths |
 | **Regression** | `-Pregression` | The full class list, `groups` filtered to `smoke`+`regression`+`negative` — broader coverage, including the app-agnostic `ConfigManagerTests`/`App<X>ServiceConfigTests` |
 
 ```bash
 # Full master suite (default app = appA, default env = qa)
-mvn clean test
+./mvnw clean test
 
 # Specific application + environment
-mvn clean test -Dapp=appA -Denv=dev
-mvn clean test -Dapp=appB -Denv=qa
+./mvnw clean test -Dapp=appA -Denv=dev
+./mvnw clean test -Dapp=appB -Denv=qa
 
 # Smoke suite only (via Maven profile), per application
-mvn clean test -Dapp=appA -Psmoke
-mvn clean test -Dapp=appB -Psmoke
+./mvnw clean test -Dapp=appA -Psmoke
+./mvnw clean test -Dapp=appB -Psmoke
 
 # Regression suite, per application
-mvn clean test -Dapp=appA -Pregression
-mvn clean test -Dapp=appB -Pregression
+./mvnw clean test -Dapp=appA -Pregression
+./mvnw clean test -Dapp=appB -Pregression
 
 # Override a single config value ad-hoc
-mvn clean test -Dapp=appA -Denv=qa -Dbase.url=https://reqres.in
+./mvnw clean test -Dapp=appA -Denv=qa -Dbase.url=https://reqres.in
 ```
 
 ## Local validation
@@ -276,12 +318,21 @@ the full breakdown:
 - `smoke` and `regression` upload `allure-results`, `extent-reports`, and `surefire-reports` as
   build artifacts, always — even on failure. `framework-health` produces no such output (it isn't a
   test run), so it has nothing to upload.
+- The workflow declares `permissions: contents: read` at the top level — none of its jobs write to
+  the repository.
+
+**Fork pull requests:** GitHub deliberately withholds repository secrets from workflows triggered by
+a fork, so `QA_API_KEY` is empty there and App A's matrix leg fails fast with a clear
+`auth.api.key.value` configuration error instead of authenticating. That trade-off is intentional:
+suppressing App A whenever the key is absent would quietly drop real coverage on exactly the pull
+requests that most need reviewing. App B's leg and `framework-health` require no secret, so a fork
+contributor still gets a genuine, complete signal from those two without holding any credential.
 
 ## Reports
 
 **Allure** (rich, interactive, step-by-step request/response history):
 ```bash
-mvn allure:serve
+./mvnw allure:serve
 # or, after a run:
 allure serve target/allure-results
 ```
@@ -342,7 +393,7 @@ See `DESIGN.md` for the full walkthrough. In short: a new application needs its 
 - Point `base.url` in the relevant `config/<app>/*.properties` at your service.
 - Set `auth.type` (`NONE`, `BASIC`, `BEARER_TOKEN`, `API_KEY`, `OAUTH2`, `DIGEST`) and fill in the matching `auth.*` keys.
 - Add your own request/response POJOs and JSON Schemas.
-- CI: run `mvn clean test -Dapp=appA -Denv=qa` then archive `target/allure-results` and `target/extent-reports` as build artifacts; feed `allure-results` into an Allure Jenkins/GitHub Action plugin for trend history.
+- CI: run `./mvnw clean test -Dapp=appA -Denv=qa` then archive `target/allure-results` and `target/extent-reports` as build artifacts; feed `allure-results` into an Allure Jenkins/GitHub Action plugin for trend history.
 
 ## Key design decisions worth knowing
 
@@ -352,3 +403,8 @@ See `DESIGN.md` for the full walkthrough. In short: a new application needs its 
 - **`RestClient` itself is a plain field, not ThreadLocal** — safe *because* `BaseTest.client()` is ThreadLocal-backed, guaranteeing each thread already owns an independent `RestClient` instance. If you ever refactor test setup so a `RestClient` could be shared across threads again, it needs the ThreadLocal treatment back.
 - **Sensitive headers are masked in every log/report** — `Authorization`, API keys, tokens, and cookies show as `abcd****(masked)` in both the SLF4J logs and the Extent report, so neither becomes a place secrets leak from.
 - **Config resolution order**: `-D` system property → env-specific `.properties` → `default.properties`, so CI can override one value without touching files.
+
+## License
+
+Licensed under the Apache License, Version 2.0 — see [`LICENSE`](LICENSE). Third-party dependencies
+remain under their own respective licenses.
