@@ -29,6 +29,7 @@
             <class name="com.framework.apps.appB.tests.AppBBookingLifecycleTests"/>
             <class name="com.framework.apps.appB.tests.AppBServiceConfigTests"/>
             <class name="com.framework.config.ConfigManagerTests"/>
+            <class name="com.framework.reporting.AllureEnvironmentWriterTests"/>
         </classes>
     </test>
 

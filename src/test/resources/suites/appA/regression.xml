@@ -24,6 +24,7 @@
             <class name="com.framework.apps.appA.tests.ServiceClientTests"/>
             <class name="com.framework.apps.appA.tests.AppAServiceConfigTests"/>
             <class name="com.framework.config.ConfigManagerTests"/>
+            <class name="com.framework.reporting.AllureEnvironmentWriterTests"/>
         </classes>
     </test>
 

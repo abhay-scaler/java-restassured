@@ -3,6 +3,7 @@ package com.framework.listeners;
 import com.aventstack.extentreports.ExtentTest;
 import com.aventstack.extentreports.Status;
 import com.framework.config.ConfigManager;
+import com.framework.reporting.AllureEnvironmentWriter;
 import com.framework.reporting.ExtentManager;
 import com.framework.reporting.ExtentTestManager;
 import io.qameta.allure.Allure;
@@ -27,6 +28,10 @@ public class TestListener implements ITestListener {
     @Override
     public void onStart(ITestContext context) {
         log.info("===== Suite started: {} =====", context.getName());
+        // Populates Allure's Environment widget; wired independently of ExtentManager's
+        // own Application/Environment system info so removing either backend doesn't
+        // affect the other.
+        AllureEnvironmentWriter.write();
     }
 
     @Override

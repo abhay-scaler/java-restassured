@@ -267,11 +267,19 @@ an Extent category via `assignCategory(...)`; `BaseTest.beforeSuite()` logs the 
 value into `execution.log` alongside the pre-existing Environment/Base URL/etc. banner. None of this
 required touching `ExtentTestManager`, `ExtentReportingFilter`, or Allure — verified empirically
 against real generated `ExtentReport.html` output for both applications (System/Environment panel,
-node naming, category tags, zero cross-app leakage), not just passing tests. Allure was left
-unchanged in this pass — it already carries class/thread metadata and app-distinguishing `@Epic`
-grouping automatically via the allure-testng integration, but its Environment widget remains
-unpopulated (no `environment.properties` is written) — that gap remains open, deliberately out of
-scope for the Extent-focused reporting work described here.
+node naming, category tags, zero cross-app leakage), not just passing tests.
+
+Allure's Environment widget is populated the same way: `AllureEnvironmentWriter.write()`, called
+once from `TestListener.onStart()` before any `@Test` method runs, writes the same
+`Application`/`Environment` pair to `<allure-results>/environment.properties`. It's wired as a
+separate call from `ExtentManager`'s own system-info setup, preserving the two backends'
+independence — dropping either one doesn't affect the other. Allure only reads this file at
+report-generation time (`allure serve`/`mvn allure:report`, or an external Allure plugin/server
+consuming a downloaded CI artifact), so write timing within a suite run doesn't matter, and any
+write failure is logged as a warning rather than failing the test run, matching
+`ExtentReportingFilter`'s existing "reporting must never break a test run" convention. Verified by
+the network-free `AllureEnvironmentWriterTests`, registered in `testng.xml`/`regression.xml` for
+both applications alongside `ConfigManagerTests`.
 
 ## CI/CD flow
 

@@ -3,22 +3,25 @@
 How this framework's reporting is wired, so you can explain a generated report or extend it
 without duplicating logic. The implementation lives in protected files
 (`reporting/ExtentManager.java`, `reporting/ExtentTestManager.java`,
-`listeners/TestListener.java`, `filters/ExtentReportingFilter.java`) — see
-[`../../AGENTS.md`](../../AGENTS.md) before changing any of them.
+`reporting/AllureEnvironmentWriter.java`, `listeners/TestListener.java`,
+`filters/ExtentReportingFilter.java`) — see [`../../AGENTS.md`](../../AGENTS.md) before changing
+any of them.
 
 ## Two independent backends
 
 - **Allure** — populated automatically via `allure-testng` + the `AllureRestAssured` RestAssured
   filter (registered in `RequestSpecFactory`). Class name, thread name, suite hierarchy, and
   `@Epic` groupings (`"Users API"` / `"Restful Booker API"`) come from the integration itself, no
-  custom code required. Its Environment widget is **not** populated (no `environment.properties`
-  is written) — a known, deliberately out-of-scope gap, not a regression.
+  custom code required. Its Environment widget is populated by `AllureEnvironmentWriter`, described
+  below.
 - **ExtentReports** — a single self-contained HTML file
   (`target/extent-reports/ExtentReport.html`, path driven by `report.extent.path`), built and
   populated by this framework's own code, described below.
 
 Both are generated on every run automatically — no extra flags needed. Removing one filter/backend
-doesn't affect the other; they're wired independently in `RequestSpecFactory`.
+doesn't affect the other; they're wired independently in `RequestSpecFactory`, and
+`AllureEnvironmentWriter`'s call site in `TestListener` is a separate call from `ExtentManager`'s
+own system-info setup — dropping either one doesn't affect the other backend.
 
 ## What's in the current ExtentReports output
 
@@ -60,6 +63,21 @@ doesn't affect the other; they're wired independently in `RequestSpecFactory`.
    `filters/RequestResponseLoggingFilter` (SLF4J) and `ExtentReportingFilter` — `Authorization`,
    API keys, tokens, and cookies render as `abcd****(masked)` in every log and report. This is
    shared logic, not duplicated per backend; don't reimplement masking in a new filter.
+
+## What's in the current Allure output
+
+Beyond what `allure-testng`/`AllureRestAssured` populate automatically (see above),
+`AllureEnvironmentWriter.write()` — called once from `TestListener.onStart()`, before any
+`@Test` method runs — writes `Application`/`Environment` (the same two facts `ExtentManager`
+reads via `ConfigManager`) to `<allure-results>/environment.properties`. Allure only reads this
+file at report-generation time (`allure serve`, `mvn allure:report`, or an external Allure
+plugin/server consuming a downloaded CI artifact), so write timing within a suite run doesn't
+matter — it only needs to exist in the results directory by then. Any failure to write it is
+logged as a warning and never fails the test run, the same "reporting must never break a test
+run" convention `ExtentReportingFilter` already follows. Verified by the network-free
+`AllureEnvironmentWriterTests` (`src/test/java/com/framework/reporting/`), registered in
+`testng.xml`/`regression.xml` for both apps — the same suites `ConfigManagerTests` is registered
+in, and not `smoke.xml`, since smoke stays scoped to each app's own critical-path checks.
 
 ## Adding a new application's reporting
 
