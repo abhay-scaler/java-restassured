@@ -95,20 +95,27 @@ check_shared_core_app_branching() {
         files+=("src/test/java/com/framework/base/BaseTest.java")
     fi
 
-    for f in "${files[@]}"; do
-        [ -f "$f" ] || continue
-        while IFS=: read -r lineno line; do
-            [ -z "${lineno:-}" ] && continue
-            if echo "$line" | grep -qE 'DEFAULT_APP[[:space:]]*=[[:space:]]*"appA"'; then
-                continue
-            fi
-            local trimmed
-            trimmed="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-            record_failure "A:shared-core-app-branching" "$f:$lineno" \
-                "protected shared-core code references an application name outside the ConfigManager.DEFAULT_APP exception: \`$trimmed\`" \
-                "Move application-specific logic into src/main/java/com/framework/apps/<app>/, or read it generically via ConfigManager/ServiceConfig instead of branching on the app name (AGENTS.md rule 1)."
-        done < <(strip_comments "$f" | grep -nE '(^|[^A-Za-z0-9_])(appA|appB)([^A-Za-z0-9_]|$)')
-    done
+    # Guard against iterating an empty array: under `set -u`, bash < 4.4
+    # treats "${files[@]}" on a declared-but-empty array as an unbound
+    # variable and aborts the whole script, rather than simply running the
+    # loop zero times. Skipping the loop entirely when there's nothing to
+    # check is also the correct behavior, not just a workaround.
+    if [ "${#files[@]}" -gt 0 ]; then
+        for f in "${files[@]}"; do
+            [ -f "$f" ] || continue
+            while IFS=: read -r lineno line; do
+                [ -z "${lineno:-}" ] && continue
+                if echo "$line" | grep -qE 'DEFAULT_APP[[:space:]]*=[[:space:]]*"appA"'; then
+                    continue
+                fi
+                local trimmed
+                trimmed="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+                record_failure "A:shared-core-app-branching" "$f:$lineno" \
+                    "protected shared-core code references an application name outside the ConfigManager.DEFAULT_APP exception: \`$trimmed\`" \
+                    "Move application-specific logic into src/main/java/com/framework/apps/<app>/, or read it generically via ConfigManager/ServiceConfig instead of branching on the app name (AGENTS.md rule 1)."
+            done < <(strip_comments "$f" | grep -nE '(^|[^A-Za-z0-9_])(appA|appB)([^A-Za-z0-9_]|$)')
+        done
+    fi
 }
 
 # ---------------------------------------------------------------------------

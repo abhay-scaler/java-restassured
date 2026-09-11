@@ -37,16 +37,17 @@ SELFTEST_CASES=0
 # add_check_a_placeholder <fixture-dir>
 #
 # Check A (check_shared_core_app_branching) builds its file list by scanning
-# every protected src/main/java/com/framework/<dir>/ directory; if that list
-# ends up completely empty, the "${files[@]}" expansion later in the real
-# script raises "unbound variable" under `set -u` on bash < 4.4 (a known
-# bash quirk, fixed in 4.4 - see the "Bash 3.2 finding" note at the bottom
-# of this file). That can never happen against the real repository, where
+# every protected src/main/java/com/framework/<dir>/ directory. When that
+# list is empty, the real script now takes a guarded, zero-finding path
+# (see the length guard around that loop in validate-framework.sh, and the
+# dedicated check-A-empty case below, which exercises exactly that path).
+# That empty condition can never happen against the real repository, where
 # every protected directory always has at least one file - but a fixture
 # built to isolate Checks B-E deliberately has none. Every such fixture
 # calls this helper once so Check A always has exactly one harmless file to
-# look at (and correctly finds nothing wrong with it), sidestepping that
-# unrelated bash edge case without changing what B-E actually verify.
+# look at (and correctly finds nothing wrong with it), keeping these
+# fixtures' assertions about B-E free of any interaction with Check A's
+# empty-list handling one way or the other.
 # ---------------------------------------------------------------------------
 add_check_a_placeholder() {
     mkdir -p "$1/src/main/java/com/framework/auth"
@@ -157,6 +158,19 @@ public class AuthProviderFixture {
     }
 }
 EOF
+}
+
+setup_A_empty() {
+    # Deliberately create nothing: no src/main/java/com/framework/<dir>/
+    # files at all, and no src/test/java/com/framework/base/BaseTest.java.
+    # This is the exact condition that used to crash the real script with
+    # "unbound variable" on bash < 4.4 (the `files` array Check A builds
+    # stays completely empty) - see the length guard in
+    # check_shared_core_app_branching(). Intentionally does NOT call
+    # add_check_a_placeholder; that helper exists so *other* checks' fixtures
+    # don't accidentally hit this exact condition, but this case exists
+    # specifically to prove the condition itself is now handled correctly.
+    :
 }
 
 # ---------------------------------------------------------------------------
@@ -335,6 +349,7 @@ EOF
 run_case "check-A-valid"          setup_A_valid          0
 run_case "check-A-invalid"        setup_A_invalid        1 "A:shared-core-app-branching"
 run_case "check-A-comment-only"   setup_A_comment_only   0
+run_case "check-A-empty"          setup_A_empty          0
 run_case "check-B-valid"          setup_B_valid          0
 run_case "check-B-invalid"        setup_B_invalid        1 "B:missing-required-listener"
 run_case "check-C-valid"          setup_C_valid          0
@@ -354,22 +369,21 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Known, deliberately unfixed latent issue in validate-framework.sh
-# (recorded here, not fixed here - this file only tests the validator,
-# it does not change it):
+# Bash 3.2 empty-array issue - now fixed, regression-tested by check-A-empty
+# above.
 #
-# check_shared_core_app_branching() builds `files=()`, then later does
-# `for f in "${files[@]}"; do`. Under `set -uo pipefail`, expanding
-# "${array[@]}" on a declared-but-EMPTY array raises "unbound variable" on
-# bash < 4.4 (fixed upstream in 4.4). Triggering condition: every one of
-# the 13 protected src/main/java/com/framework/<dir>/ directories, plus
-# src/test/java/com/framework/base/BaseTest.java, has zero files.
-#
-# This cannot happen against the real repository as it exists today - every
-# protected directory always has at least one .java file - so production
-# runs of ./tools/validate-framework.sh are unaffected; this file's own
-# fixtures work around it (add_check_a_placeholder) precisely so this
-# self-test doesn't spuriously trip over it while testing something else.
-# Left unchanged deliberately: fixing it is a production-code change with
-# its own review, out of scope for adding a self-test.
+# check_shared_core_app_branching() builds `files=()`, then iterates
+# "${files[@]}". Under `set -uo pipefail`, expanding "${array[@]}" on a
+# declared-but-EMPTY array raises "unbound variable" on bash < 4.4 (fixed
+# upstream in 4.4). Triggering condition: every one of the 13 protected
+# src/main/java/com/framework/<dir>/ directories, plus
+# src/test/java/com/framework/base/BaseTest.java, has zero files - which the
+# real repository never hits (every protected directory always has at least
+# one file), but which a fixture built to isolate Checks B-E deliberately
+# does hit unless it calls add_check_a_placeholder. The production fix is a
+# length guard (`if [ "${#files[@]}" -gt 0 ]; then ... fi`) around that loop
+# in validate-framework.sh; the check-A-empty case above exercises exactly
+# this condition directly, so a regression here would show up as that case
+# failing (or the whole self-test crashing), not just as a comment going
+# stale.
 # ---------------------------------------------------------------------------
