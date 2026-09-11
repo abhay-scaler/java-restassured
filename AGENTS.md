@@ -53,12 +53,16 @@ violate them even if a task seems to require it — stop and ask instead.
 4. **Never commit real secrets.** Properties files only ever hold a placeholder
    (`REPLACE_WITH_YOUR_REQRES_API_KEY`) or a documented public demo credential (App B's Restful
    Booker `admin`/`password123`). Real values are supplied via `-D` or a CI secret.
-5. **Don't misclassify external API failures as framework regressions.** App A (reqres.in) is
-   known to return HTTP 429/403 depending on key/quota state; App B (Restful Booker) is known to
-   return HTTP 418 (which cascades into a `createBooking()` parsing exception downstream). Neither
-   is a framework defect by itself. See
+5. **Don't misclassify external API failures as framework regressions — but don't assume every
+   4xx is external either.** App A (reqres.in) is known to return HTTP 429/403 depending on
+   key/quota state; that one is genuinely external. App B (Restful Booker)'s HTTP 418 (which used
+   to cascade into a `createBooking()` parsing exception downstream) turned out to be a real,
+   fixed framework bug: `RequestSpecFactory` was sending RestAssured's `ContentType.JSON` Accept
+   header, which expands to `application/json, application/javascript, text/javascript, text/json`
+   — Restful Booker's demo API treats that broader value as a trigger for its 418 easter egg. It's
+   fixed by sending the literal `application/json` Accept value instead. See
    [`docs/AI/DEBUG_TEST_FAILURE.md`](docs/AI/DEBUG_TEST_FAILURE.md) before concluding a test
-   failure is a real regression.
+   failure is external — verify the actual status code/body/header, don't just assume.
 6. **Don't conflate the two parallelism layers.** GitHub Actions matrix (`strategy.matrix.app`,
    process-level, CI-only) and TestNG `parallel="methods"` (thread-level, in-process) are
    independent mechanisms. See [`docs/AI/CI.md`](docs/AI/CI.md).

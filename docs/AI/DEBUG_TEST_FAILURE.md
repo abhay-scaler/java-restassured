@@ -21,23 +21,37 @@ find:
 - Whether `RetryAnalyzer` already re-ran the whole test (`test.retry.count`) before the final
   failure was reported.
 
-## Step 2 — Check against the two known external limitations first
+## Step 2 — Check against the one known external limitation first
 
 | App | Symptom | Status | Meaning |
 |---|---|---|---|
 | appA (reqres.in) | `403` with body mentioning `invalid_api_key`, or `429` mentioning `rate_limit_exceeded` | 403 / 429 | The configured API key is invalid/revoked, or the free-tier daily quota is exhausted. **Get a fresh key** (`README.md` → Setup) rather than debugging the framework. |
-| appB (Restful Booker) | `text/plain` body `"I'm a Teapot"`, `Content-Type: text/plain` instead of `application/json` | 418 | The public Heroku demo instance returning 418 to Java/RestAssured clients specifically (plain curl to the same endpoint does not reproduce it — this has been isolated outside the framework). This is why `suites/appB/*.xml` run at `thread-count="1"` — reducing concurrency does not eliminate it. |
-| appB | `IllegalStateException` from inside `createBooking()` / test setup that calls `.as(...)` immediately | (downstream of 418) | This is the **same** 418 issue, not a fourth independent defect — a test that deserializes the response before checking its status code turns the 418's `text/plain` body into a parsing exception instead of a clean status-code assertion failure. Trace it back to the 418, don't treat it as new. |
 
-If your failure matches one of these rows exactly (same status code, same body shape), it is an
-external issue. Note it and move on — do not "fix" it by retrying more aggressively, changing
-`http.retry.count`, or adding app-specific handling to shared code (that would itself violate
-[`../../AGENTS.md`](../../AGENTS.md) rule 1: 4xx/418 client-error-shaped responses are never
-retried, and adding an `if (app.equals("appB"))` branch to swallow 418 in `RestClient` would be
-exactly the kind of core-file branching that's prohibited).
+If your failure matches this row exactly (same status code, same body shape), it is an external
+issue. Note it and move on — do not "fix" it by retrying more aggressively or changing
+`http.retry.count`.
 
-If your failure does **not** match one of these rows — different status code, different exception
-type, different body shape — treat it as a real problem and keep going.
+If your failure does **not** match this row — different status code, different exception type,
+different body shape — treat it as a real problem and keep going.
+
+**A note on App B (Restful Booker) 418s specifically:** this used to be listed here as a second
+"known external limitation" (`418`, `text/plain` body `"I'm a Teapot"`, and the downstream
+`IllegalStateException: Cannot parse object because no supported Content-Type was specified in
+response` from any test that deserializes before checking the status code). It wasn't external —
+it was a real, fixed framework bug in `RequestSpecFactory`, which sent RestAssured's
+`ContentType.JSON` as the `Accept` header. That enum expands to
+`application/json, application/javascript, text/javascript, text/json`, and Restful Booker's demo
+API treats that broader value as a trigger for its 418 easter egg; a curl with the identical
+compound header reproduces the 418 on demand, and a curl with a plain `Accept: application/json`
+(or no `Accept` header at all) gets a normal `200` every time. The earlier investigation that
+labeled this "external, not reproducible with plain curl" never controlled for the `Accept` header
+in its comparison curl — it used curl's default, which doesn't send that compound value, so it
+naturally succeeded and looked like a client-specific quirk. The fix is one line per
+`RequestSpecFactory` builder method: send the literal `application/json` Accept value instead of
+the `ContentType.JSON` enum. If you see a genuine 418 from Restful Booker *now*, don't reflexively
+write it off as external — check that the request actually went through `RequestSpecFactory`
+(a hand-built `RequestSpecification` bypassing it would still have the old problem) before treating
+it as a fresh instance of the old issue.
 
 ## Step 3 — Rule out configuration/environment issues
 

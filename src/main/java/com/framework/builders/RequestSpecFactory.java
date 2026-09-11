@@ -33,7 +33,11 @@ public final class RequestSpecFactory {
         RequestSpecBuilder builder = new RequestSpecBuilder()
                 .setBaseUri(baseUri)
                 .setContentType(ContentType.JSON)
-                .setAccept(ContentType.JSON)
+                // Send the literal "application/json", not ContentType.JSON: RestAssured expands
+                // that enum to "application/json, application/javascript, text/javascript, text/json",
+                // and Restful Booker's demo API returns 418 "I'm a Teapot" for that broader Accept
+                // value (confirmed against the live API; reqres.in is indifferent either way).
+                .setAccept("application/json")
                 .setConfig(restAssuredConfig(config))
                 .addFilter(new AllureRestAssured())
                 .addFilter(new RequestResponseLoggingFilter())
@@ -52,7 +56,8 @@ public final class RequestSpecFactory {
         return new RequestSpecBuilder()
                 .setBaseUri(baseUri)
                 .setContentType(ContentType.JSON)
-                .setAccept(ContentType.JSON)
+                // See createDefault() above: literal "application/json", not ContentType.JSON.
+                .setAccept("application/json")
                 .setConfig(restAssuredConfig(config))
                 .addFilter(new AllureRestAssured())
                 .addFilter(new RequestResponseLoggingFilter())
@@ -78,7 +83,8 @@ public final class RequestSpecFactory {
         RequestSpecBuilder builder = new RequestSpecBuilder()
                 .setBaseUri(baseUri)
                 .setContentType(ContentType.JSON)
-                .setAccept(ContentType.JSON)
+                // See createDefault() above: literal "application/json", not ContentType.JSON.
+                .setAccept("application/json")
                 .setConfig(restAssuredConfig(config.connectionTimeout(), config.socketTimeout()))
                 .addFilter(new AllureRestAssured())
                 .addFilter(new RequestResponseLoggingFilter())

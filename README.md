@@ -51,20 +51,23 @@ a clear "suite file is not a valid file" error; it does not silently fall back t
 
 ## Known external API limitations
 
-Both applications currently have live-execution failures that are **external to this framework**,
-not framework or configuration defects — verified by isolating each down to a plain curl/RestAssured
-script outside this codebase:
-
 - **App A / reqres.in:** the configured API key returns HTTP 403 `invalid_api_key`. Get a fresh key
   (see **Setup**) if you hit this — it means the key is invalid/revoked/quota-exhausted, not that
-  the framework is broken.
-- **App B / Restful Booker:** the public Heroku demo instance intermittently returns HTTP 418 to
-  Java/RestAssured clients specifically (plain curl to the same endpoints does not reproduce it).
-  This is why `suites/appB/*.xml` run sequentially (`thread-count="1"`) — a considerate default on a
-  shared free instance, not a fix for the 418s, which persist regardless of concurrency. See the
-  inline comment in `suites/appB/testng.xml` for the full investigation notes.
+  the framework is broken. This one is genuinely external — verified by isolating it down to a
+  plain curl/RestAssured script outside this codebase.
 
-Config/service isolation, suite selection, and the auth layer are unaffected by either limitation —
+**App B / Restful Booker's HTTP 418 was *not* external** — it was a real framework bug, now fixed.
+`RequestSpecFactory` sent RestAssured's `ContentType.JSON` as the `Accept` header, which expands to
+`application/json, application/javascript, text/javascript, text/json`; Restful Booker's demo API
+returns 418 for that broader value specifically, and `200` for a plain `Accept: application/json`
+(confirmed with a live curl comparison — this was previously misdiagnosed as unreproducible with
+plain curl because the earlier comparison curl never sent the same compound Accept value). See the
+**Changelog** below and [`docs/AI/DEBUG_TEST_FAILURE.md`](docs/AI/DEBUG_TEST_FAILURE.md) for the
+full evidence. `suites/appB/*.xml` still run sequentially (`thread-count="1"`) as a considerate
+default on a shared free instance — that was never the fix for the 418s and remains unrelated to
+this one.
+
+Config/service isolation, suite selection, and the auth layer are unaffected by either issue —
 `ConfigManagerTests`, `AppAServiceConfigTests`, `AppBServiceConfigTests`, and `AppBAuthTests` all
 pass independently of both apps' live-API status.
 
@@ -81,6 +84,7 @@ pass independently of both apps' live-API status.
 | `TestListener` called `ExtentTestManager.getTest().log(...)` directly; if a `@BeforeMethod` fails, TestNG fires `onTestSkipped` without ever having called `onTestStart`, so `getTest()` returns `null` → `NullPointerException` | Added a fallback that creates the Extent node on the fly if one doesn't exist yet |
 | Request/response bodies were logged with a POJO's raw `toString()` instead of JSON, and headers (including `Authorization`/API keys) were logged unmasked | New shared `HttpLogFormatter`: pretty-prints JSON bodies and masks sensitive header values, used by both the SLF4J log filter and the Extent report filter |
 | Extent report showed pass/fail only — no request/response detail | New `ExtentReportingFilter` (below) |
+| **App B's HTTP 418s, long documented as an unfixable external Restful Booker quirk**: `RequestSpecFactory` sent `Accept: application/json, application/javascript, text/javascript, text/json` (RestAssured's `ContentType.JSON` expansion), which Restful Booker's demo API treats as a trigger for its 418 easter egg | `RequestSpecFactory`'s three builder methods now send the literal `Accept: application/json` instead — confirmed via live curl (compound header → 418, plain header → 200) and a full App B smoke-suite run (12×418/4 failures → 0×418/0 failures) |
 
 ## Reports identify application, environment, class/method, and full request/response detail
 

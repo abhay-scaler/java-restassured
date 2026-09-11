@@ -51,10 +51,15 @@ pass it via `-Dauth.api.key.value=YOUR_KEY`, or update
 
 ## `418` / `text/plain "I'm a Teapot"` against App B (Restful Booker), or an `IllegalStateException` from `createBooking()`
 
-**Not a framework bug** — the same known external issue, two different symptoms depending on
-whether the test checks the status code before or after deserializing. See
-[`DEBUG_TEST_FAILURE.md`](DEBUG_TEST_FAILURE.md) and the investigation notes in
-`suites/appB/testng.xml`.
+**This was a real framework bug, now fixed** — it was previously (mis)documented here as an
+unavoidable external quirk. `RequestSpecFactory` was sending RestAssured's `ContentType.JSON` as
+the `Accept` header, which expands to `application/json, application/javascript, text/javascript,
+text/json`; Restful Booker's demo API returns 418 for that broader value specifically, and a `200`
+for a plain `Accept: application/json`. The fix sends the literal `application/json` value instead
+— see [`DEBUG_TEST_FAILURE.md`](DEBUG_TEST_FAILURE.md) for the full evidence. If you still see a
+418 after this fix, it means some request path isn't going through `RequestSpecFactory` (e.g. a
+hand-built `RequestSpecification`) — that's worth investigating as a real, new issue, not writing
+off as "the known Restful Booker quirk."
 
 ## `NoClassDefFoundError` / AspectJ weaver errors during `mvn test`
 

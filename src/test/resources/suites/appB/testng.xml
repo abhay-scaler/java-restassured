@@ -2,14 +2,24 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <!--
     thread-count is intentionally 1 (sequential), not this framework's usual 3/5.
-    Restful Booker's free public Heroku instance intermittently returns
-    418 responses to Java/RestAssured clients specifically (confirmed via a
-    minimal, framework-independent RestAssured script - plain curl to the
-    same endpoints never reproduces it, and reducing this to 1 did not
-    eliminate it either, so it is not a concurrency/load problem this
-    framework caused or can fix). Kept at 1 anyway as considerate default
-    load on a shared free demo instance; raise it back to 3+ if your
-    network path to restful-booker.herokuapp.com doesn't exhibit this.
+
+    This used to carry a note about Restful Booker intermittently returning 418
+    to Java/RestAssured clients specifically, framed as an external quirk this
+    framework couldn't fix ("plain curl never reproduces it" - true, but only
+    because that comparison curl never sent the same Accept header). It wasn't
+    external: RequestSpecFactory was sending RestAssured's ContentType.JSON as
+    the Accept header, which expands to
+    "application/json, application/javascript, text/javascript, text/json" -
+    Restful Booker's demo API treats that broader value as a trigger for its
+    418 easter egg. Fixed by sending the literal "application/json" value
+    instead (see RequestSpecFactory) - confirmed via a full App B smoke-suite
+    run going from 12x418/4 failures to 0x418/0 failures, and reducing
+    thread-count to 1 never eliminated the 418s either, confirming concurrency
+    was never the cause.
+
+    thread-count stays at 1 anyway, unrelated to the above: a considerate
+    default load on a shared free demo instance, not a fix for anything. Raise
+    it back to 3+ if you have a specific reason to.
 -->
 <suite name="Restful Booker API Testing Framework - Master Suite" parallel="methods" thread-count="1" verbose="1">
 

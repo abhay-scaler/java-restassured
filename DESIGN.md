@@ -280,8 +280,8 @@ scope for the Extent-focused reporting work described here.
 - **`smoke` — PR / push to `main`:** matrixed over `app: [appA, appB]` (`strategy.matrix`,
   `fail-fast: false`), each running that application's smoke suite as its own independent check —
   `./mvnw -B clean test -Psmoke -Dapp=${{ matrix.app }} -Denv=qa`. `fail-fast: false` is deliberate:
-  App A and App B are independent validation targets, so one app's known external failure
-  (reqres.in 403/429) must never cancel the other's job before it even runs (Restful Booker's 418).
+  App A and App B are independent validation targets, so App A's known external failure
+  (reqres.in 403/429) must never cancel App B's job before it even runs, and vice versa.
   Artifact names are disambiguated per app (`reports-smoke-<app>-<run>`).
 - **`regression` — nightly (cron) / manual dispatch:** runs the regression suite, but **not
   multi-app-matrixed** — it never passes `-Dapp=`, so it always falls through to the pom's `appA`
@@ -402,22 +402,32 @@ reachable/healthy at any given moment:
   `apps/appB/`) turns up exactly one hit — `ConfigManager.DEFAULT_APP = "appA"`, a single default
   value (the same pattern as `DEFAULT_ENV = "qa"`), not branching logic.
 
-**Known external limitations — not framework defects**, isolated down to plain curl/RestAssured
-scripts outside this codebase before being ruled external:
+**Known external limitation — not a framework defect**, isolated down to a plain curl/RestAssured
+script outside this codebase before being ruled external:
 
 - **App A / reqres.in:** live test execution currently fails with HTTP 403 `invalid_api_key` (the
   configured key is invalid, revoked, or quota-exhausted — this has also been observed as a 429
   `rate_limit_exceeded` on reqres.in's free-tier daily quota in earlier sessions; both are the same
   class of external key/quota issue, not a regression). A fresh key resolves it (see README Setup).
-- **App B / Restful Booker:** live test execution intermittently fails with HTTP 418 from
-  Java/RestAssured clients specifically against the public Heroku demo instance — plain curl to the
-  identical endpoints does not reproduce it, and neither User-Agent spoofing, explicit
-  `Connection: close`, nor forcing TLS 1.2 changed the outcome. This is why App B's suites run
-  sequentially; see the inline investigation notes in `suites/appB/testng.xml`.
 
-These two limitations do not affect, and must not be conflated with, the architecture/configuration/
-suite-selection/thread-safety validation above, which is independent of either application's live
-API health.
+This limitation does not affect, and must not be conflated with, the architecture/configuration/
+suite-selection/thread-safety validation above, which is independent of App A's live API health.
+
+**App B / Restful Booker's HTTP 418 was previously documented here as a second external
+limitation — it was not.** It was a real, fixed framework bug: `RequestSpecFactory` sent
+RestAssured's `ContentType.JSON` as the `Accept` header, which expands to
+`application/json, application/javascript, text/javascript, text/json`. Restful Booker's demo API
+treats that broader value as a trigger for its 418 easter egg; a curl carrying the identical
+compound header reproduces the 418 on demand, while a curl with a plain `Accept: application/json`
+(or no `Accept` header at all) gets a normal `200` every time. The earlier "plain curl doesn't
+reproduce it" conclusion held only because that comparison curl never sent the same compound
+header — it used curl's own default, which naturally succeeded, making the issue look
+client-specific when it wasn't. Fixed by sending the literal `application/json` Accept value from
+all three `RequestSpecFactory` builder methods; confirmed via a full App B smoke-suite run going
+from 12×418/4 failures to 0×418/0 failures, with App A unaffected either way. App B's suites still
+run sequentially (`thread-count="1"`) as a considerate default on a shared free instance — that was
+never the fix for the 418s and remains unrelated to this one; see the inline investigation notes in
+`suites/appB/testng.xml`.
 
 ## Interview explanation
 
