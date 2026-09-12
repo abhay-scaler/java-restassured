@@ -17,7 +17,6 @@ boundary holds:
 | `appB` | Restful Booker | Hotel booking lifecycle |
 
 Full architecture: [`DESIGN.md`](DESIGN.md). User-facing setup/usage: [`README.md`](README.md).
-Interview-style deep dive with debugging stories: [`docs/INTERVIEW_GUIDE.md`](docs/INTERVIEW_GUIDE.md).
 
 ## Start here
 

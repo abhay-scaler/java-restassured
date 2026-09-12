@@ -91,10 +91,7 @@ If you've ruled out Steps 2–4, the candidates worth investigating are:
 - A JSON Schema out of sync with the actual API response shape.
 
 Reproduce with the smallest possible repro (a single `@Test`, `mvn test -Dapp=<app> -Dtest=<Class>#<method>`
-if useful) before proposing a fix, and check whether the same class of failure is already described
-in `docs/INTERVIEW_GUIDE.md`'s **Important Debugging Stories** section — several past
-investigations (a `base-url` vs `base.url` config typo, a CI matrix gap, a reporting metadata gap)
-are documented there in detail and may be the same root cause recurring.
+if useful) before proposing a fix.
 
 ## Reporting a finding
 

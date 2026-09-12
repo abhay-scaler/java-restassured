@@ -126,6 +126,5 @@ re-enable annotation processing / update the Lombok plugin in your IDE.
 ## Still stuck
 
 If the error doesn't match anything above, treat it as new: capture the exact message and stack
-trace, check whether `docs/INTERVIEW_GUIDE.md`'s **Important Debugging Stories** section describes
-the same class of issue, and if it's genuinely new, follow
-[`DEBUG_TEST_FAILURE.md`](DEBUG_TEST_FAILURE.md)'s Step 5 before proposing a fix to shared code.
+trace, then follow [`DEBUG_TEST_FAILURE.md`](DEBUG_TEST_FAILURE.md)'s Step 5 before proposing a fix
+to shared code.

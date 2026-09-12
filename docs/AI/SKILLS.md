@@ -30,9 +30,6 @@ pick the guide that matches your task.
   authoritative description of the framework as it exists today. The `docs/AI/` guides do not
   duplicate that content — they add task-oriented checklists and triage flows on top of it, and
   link back to the specific sections that explain *why*.
-- [`../INTERVIEW_GUIDE.md`](../INTERVIEW_GUIDE.md) is a narrative, story-driven deep dive (useful
-  for understanding the history of specific decisions and debugging investigations). The
-  `docs/AI/` guides are the opposite in style: short, imperative, checklist-driven.
 - If a `docs/AI/` guide and `DESIGN.md`/`README.md` ever disagree, treat `DESIGN.md`/`README.md`
   as correct and flag the `docs/AI/` guide as stale — it should be corrected in the same change
   that caused the drift (see rule 7 in `AGENTS.md`).
