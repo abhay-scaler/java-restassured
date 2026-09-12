@@ -161,6 +161,17 @@ Concretely:
 - Changes to `docs/AI/**` take effect for AI runs only after they are merged into `main` through the
   existing protected-branch process.
 
+**Enforcement status.** As configured today, `docs/AI/**` has **no special technical protection**. A
+pull request editing `docs/AI/SKILLS.md` is gated by exactly the same controls as any other PR —
+one approving review, conversation resolution, and the three required checks — because there is no
+`CODEOWNERS` file and `require_code_owner_reviews` is disabled. The protection described above is
+therefore a property of **how the AI loads instructions** (only from `main`, never from the branch
+under analysis), reinforced by ordinary human review, rather than a repository-enforced rule.
+
+A future phase wanting mandatory specialist review of AI-governing documents would add a
+`CODEOWNERS` entry for `docs/AI/**` and enable required code-owner review. That is a
+repository-control change and is deliberately **not** part of this document.
+
 ### 4.2 Scope of guidance
 
 The agent must follow this repository's existing conventions rather than introducing generic
@@ -374,6 +385,15 @@ The AI must never:
 - Generated tests must consume credentials only through the **existing configuration mechanism**
   (the `auth.*` keys resolved by `ConfigManager`/`AppConfig`), never through new literals.
 
+**Scope of the command-line rule.** The prohibition above constrains **future AI jobs and AI
+processes**. It is *not* a criticism of, or a proposed change to, the existing CI workflow, which
+passes `-Dauth.api.key.value=${{ secrets.QA_API_KEY }}` to Maven and is unchanged by this document.
+That existing usage is a deliberate, accepted pattern: GitHub masks the value in workflow logs and
+the runner is ephemeral. The rule exists because an AI process is a materially different risk — its
+inputs may be transmitted to a model provider, retained, or echoed back into generated output, none
+of which is true of the Maven invocation. Any future change to how the existing CI handles secrets
+is a separate decision, outside this plan.
+
 ### 11.3 Artifacts are public
 
 This repository is public, and the existing workflow uploads `allure-results`, `extent-reports`, and
@@ -411,6 +431,12 @@ it.
   deletion disabled.
 - Fork pull requests require approval before workflows run.
 - `QA_API_KEY` exists as an Actions secret.
+- GitHub Actions tokens **cannot approve pull requests** in this repository
+  (`can_approve_pull_request_reviews` is disabled). An AI workflow therefore cannot approve its own
+  PR, and the required approving review must come from a human.
+- Branch protection does **not** currently apply to administrators (`enforce_admins` is disabled), so
+  the repository owner retains bypass. The controls above constrain automation and contributors; they
+  are not a constraint on the owner.
 
 ### 12.2 Minimum permissions for a future AI workflow
 
@@ -439,6 +465,34 @@ granted per-job, narrowly, and only where genuinely required:
 **Write scope by path.** A future AI workflow may write only to test sources, test resources, and
 documentation. It must never write to `src/main/**`, `pom.xml`, `.github/workflows/**`, `tools/**`,
 or configuration `.properties` files.
+
+### 12.4 Enforcement status of the write scope — read this carefully
+
+The path restrictions above are **instructions enforced by human review, not repository-enforced
+path permissions.** This distinction matters, and anyone resuming this work should not assume more
+protection exists than actually does.
+
+GitHub token permissions are **resource-scoped, not path-scoped**: a token holding `contents: write`
+can write to *any* path in the repository. There is no GitHub mechanism that grants "write, but only
+under `src/test/**`". Consequently, in the repository as configured today:
+
+- Nothing mechanically prevents a token with `contents: write` from modifying `src/main/**`,
+  `.github/workflows/**`, `pom.xml`, or `tools/**` **on a branch**.
+- What actually stops such a change reaching `main` is branch protection plus human review — that is
+  **detection at review time**, not prevention at write time.
+- There is currently **no `CODEOWNERS` file**, and `require_code_owner_reviews` is disabled, so no
+  path receives mandatory specialist review.
+
+Mechanisms that *would* make the write scope enforceable, if a future phase wants that guarantee:
+
+- A `CODEOWNERS` file covering `.github/workflows/**`, `src/main/**`, `tools/**`, `pom.xml`, and
+  `docs/AI/**`, combined with required code-owner review.
+- A CI check that fails any AI-authored PR touching paths outside the permitted scope.
+- Restricting the AI to a token that cannot write to the repository at all, with delivery via a
+  separate mechanism.
+
+Adopting any of these is a **repository-control change** and belongs in its own reviewed change, not
+in this planning document.
 
 The AI cannot push to `main` and cannot bypass branch protection; the protections in section 12.1
 enforce this independently of the AI's own restraint.
