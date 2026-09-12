@@ -1,6 +1,6 @@
 # API Testing Framework
 
-[![API Tests](https://github.com/venusabhay/java-restassured/actions/workflows/tests.yml/badge.svg)](https://github.com/venusabhay/java-restassured/actions/workflows/tests.yml)
+[![API Tests](https://github.com/abhay-scaler/java-restassured/actions/workflows/tests.yml/badge.svg)](https://github.com/abhay-scaler/java-restassured/actions/workflows/tests.yml)
 
 A modular, industry-pattern Java + RestAssured + TestNG framework for REST API test automation —
 **multi-application by design**. The shared/core framework (config resolution, request building,
