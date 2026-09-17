@@ -134,4 +134,29 @@ public class AppBUpdateBookingTests extends BaseTest {
 
         ResponseValidator.of(response).assertStatusCode(405);
     }
+
+    @Test(groups = {"regression", "negative"}, description = "PUT /booking/{id} without any authentication returns 403")
+    @Severity(SeverityLevel.NORMAL)
+    @Description("Mirrors AppBDeleteBookingTests.testDeleteBookingWithoutAuthReturnsForbidden's established " +
+            "pattern for the update path, which had no equivalent for PUT. Confirmed against the live API before " +
+            "writing this test: an unauthenticated PUT is rejected with 403 and the booking's fields are left " +
+            "unchanged.")
+    public void testUpdateBookingWithoutAuthReturnsForbidden() {
+        RestClient unauthenticatedClient = new RestClient(RequestSpecFactory.createWithoutAuth());
+        BookingApi unauthenticatedBookingApi = new BookingApi(unauthenticatedClient);
+
+        int bookingId = createBooking(unauthenticatedBookingApi, "Unauthorized");
+
+        UpdateBookingRequest updateRequest = UpdateBookingRequest.builder()
+                .firstname("ShouldNotApply")
+                .lastname("Original")
+                .totalprice(1)
+                .depositpaid(false)
+                .bookingdates(BookingDates.builder().checkin("2026-04-01").checkout("2026-04-05").build())
+                .build();
+
+        Response response = unauthenticatedBookingApi.updateBooking(bookingId, updateRequest);
+
+        ResponseValidator.of(response).assertStatusCode(403);
+    }
 }
