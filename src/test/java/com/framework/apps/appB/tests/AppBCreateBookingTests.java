@@ -92,4 +92,58 @@ public class AppBCreateBookingTests extends BaseTest {
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("500");
     }
+
+    @Test(groups = {"regression", "negative"},
+            description = "POST /booking accepts a negative totalprice without validation")
+    @Severity(SeverityLevel.MINOR)
+    @Description("booking_id_schema.json places no minimum or range constraint on totalprice; " +
+        "it only requires totalprice to be an integer. This was confirmed against the live API: " +
+        "a negative value is accepted with HTTP 200 and echoed back unchanged.")
+    public void testCreateBookingAcceptsNegativeTotalPrice() {
+        CreateBookingRequest requestBody = CreateBookingRequest.builder()
+                .firstname("Boundary")
+                .lastname("NegativePrice")
+                .totalprice(-500)
+                .depositpaid(true)
+                .bookingdates(BookingDates.builder().checkin("2026-09-01").checkout("2026-09-05").build())
+                .build();
+
+        Response response = bookingApi().createBooking(requestBody);
+
+        ResponseValidator.of(response).assertStatusCode(200);
+
+        SchemaValidator.validate(response, "appB/booking_id_schema.json");
+
+        BookingIdResponse body = response.as(BookingIdResponse.class);
+        assertThat(body.getBooking().getTotalprice()).isEqualTo(-500);
+    }
+    @Test(groups = {"regression", "negative"},
+            description = "POST /booking with an unrecognized field in the body silently ignores it rather than rejecting the request")
+    @Severity(SeverityLevel.MINOR)
+    @Description("Confirmed against the live API before writing this test: a body containing a field the API " +
+            "doesn't recognize ('vipStatus') still returns 200, with every genuine field processed normally and " +
+            "the unrecognized field simply absent from the response - not rejected, not echoed back. Sent as a " +
+            "Map rather than CreateBookingRequest, since that POJO correctly has no field for an unrecognized " +
+            "property.")
+    public void testCreateBookingIgnoresUnrecognizedField() {
+        Map<String, Object> requestBody = Map.of(
+                "firstname", "Unrecognized",
+                "lastname", "FieldProbe",
+                "totalprice", 100,
+                "depositpaid", true,
+                "bookingdates", Map.of("checkin", "2026-09-01", "checkout", "2026-09-05"),
+                "vipStatus", "gold"
+        );
+
+        Response response = client().post(BookingEndpoints.BOOKINGS, requestBody);
+
+        ResponseValidator.of(response).assertStatusCode(200);
+
+        Map<String, Object> booking = response.jsonPath().getMap("booking");
+        assertThat(booking)
+                .as("An unrecognized field should be silently dropped, not echoed back")
+                .doesNotContainKey("vipStatus");
+        assertThat(booking.get("firstname")).isEqualTo("Unrecognized");
+        assertThat(((Number) booking.get("totalprice")).intValue()).isEqualTo(100);
+    }
 }
