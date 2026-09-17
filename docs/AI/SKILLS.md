@@ -23,6 +23,7 @@ pick the guide that matches your task.
 | [`REPORTING.md`](REPORTING.md) | You're changing anything that affects Allure or ExtentReports output, or need to explain what's already in a generated report. |
 | [`REVIEW_CHECKLIST.md`](REVIEW_CHECKLIST.md) | You (or a reviewer) are about to approve a PR against this repo. |
 | [`API_TEST_GENERATION.md`](API_TEST_GENERATION.md) | You're using an AI agent to draft new tests, endpoints, or POJOs, and need the safe, human-reviewed workflow for doing that in this framework. |
+| [`CI_EXECUTION_EVIDENCE.md`](CI_EXECUTION_EVIDENCE.md) | You're about to treat a green set of required PR checks as proof a newly added test actually ran — read this first if the new test is tagged `regression` rather than `smoke`. |
 
 ## How these guides relate to the existing root docs
 

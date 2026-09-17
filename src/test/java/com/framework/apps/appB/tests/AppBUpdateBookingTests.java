@@ -134,4 +134,24 @@ public class AppBUpdateBookingTests extends BaseTest {
 
         ResponseValidator.of(response).assertStatusCode(405);
     }
+
+    @Test(groups = {"regression", "negative"}, description = "PATCH /booking/{id} without any authentication returns 403")
+    @Severity(SeverityLevel.NORMAL)
+    @Description("PATCH had a success case (testPartialUpdateBookingPatchSuccess) but no negative coverage at " +
+            "all. Confirmed against the live API before writing this test: an unauthenticated PATCH is rejected " +
+            "with 403, the same as PUT and DELETE on this same resource.")
+    public void testPartialUpdateBookingWithoutAuthReturnsForbidden() {
+        RestClient unauthenticatedClient = new RestClient(RequestSpecFactory.createWithoutAuth());
+        BookingApi unauthenticatedBookingApi = new BookingApi(unauthenticatedClient);
+
+        int bookingId = createBooking(unauthenticatedBookingApi, "Unauthorized");
+
+        PartialBookingRequest partialRequest = PartialBookingRequest.builder()
+                .totalprice(1)
+                .build();
+
+        Response response = unauthenticatedBookingApi.partialUpdateBooking(bookingId, partialRequest);
+
+        ResponseValidator.of(response).assertStatusCode(403);
+    }
 }
