@@ -116,6 +116,8 @@ public class AppBCreateBookingTests extends BaseTest {
 
         BookingIdResponse body = response.as(BookingIdResponse.class);
         assertThat(body.getBooking().getTotalprice()).isEqualTo(-500);
+    }
+    @Test(groups = {"regression", "negative"},
             description = "POST /booking with an unrecognized field in the body silently ignores it rather than rejecting the request")
     @Severity(SeverityLevel.MINOR)
     @Description("Confirmed against the live API before writing this test: a body containing a field the API " +
