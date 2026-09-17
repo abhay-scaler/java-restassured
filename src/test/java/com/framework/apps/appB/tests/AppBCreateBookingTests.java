@@ -96,10 +96,9 @@ public class AppBCreateBookingTests extends BaseTest {
     @Test(groups = {"regression", "negative"},
             description = "POST /booking accepts a negative totalprice without validation")
     @Severity(SeverityLevel.MINOR)
-    @Description("booking_id_schema.json places no minimum/range constraint on totalprice - only " +
-            "{\"type\": \"integer\"} - and this was confirmed against the live API before writing the assertion: " +
-            "a negative value is accepted with 200 and echoed back unchanged, exactly like any other business " +
-            "field. Not an invented boundary - the verified absence of one.")
+    @Description("booking_id_schema.json places no minimum or range constraint on totalprice; " +
+        "it only requires totalprice to be an integer. This was confirmed against the live API: " +
+        "a negative value is accepted with HTTP 200 and echoed back unchanged.")
     public void testCreateBookingAcceptsNegativeTotalPrice() {
         CreateBookingRequest requestBody = CreateBookingRequest.builder()
                 .firstname("Boundary")
