@@ -71,13 +71,18 @@ steps:
   `allure-results`/`extent-reports`/`surefire-reports` (it isn't a test run), so there is nothing to
   upload; this is an intentional difference from the other two jobs, not an oversight of the
   "preserve the artifact upload step" guidance below.
-- **Not currently a hard merge gate.** This repository's branch-protection "required status checks"
-  feature is unavailable on its current GitHub plan/visibility (confirmed via `gh api
-  repos/<owner>/<repo>/branches/main/protection` → 403 "Upgrade to GitHub Pro or make this
-  repository public to enable this feature"). The job still fails loudly (no `continue-on-error`)
-  and shows a red ❌ on the PR's checks list when a check fails, but nothing in this repo's files can
-  make that failure block the merge button today — that would require a GitHub-side plan/visibility
-  change, not a workflow-file change.
+- **A required status check.** `main`'s branch protection lists this job's check name
+  (`Framework health validator`) as one of three required status-check contexts, alongside
+  `Smoke suite (PR / push) - appA` and `Smoke suite (PR / push) - appB`. The job fails loudly (no
+  `continue-on-error`), and because the check is required, a failure blocks the merge button.
+  Branch protection is a GitHub-side setting, not something a workflow-file change controls —
+  so confirm the live list rather than trusting this paragraph:
+  `gh api repos/<owner>/<repo>/branches/main/protection --jq '.required_status_checks.contexts'`.
+  This guide previously stated the opposite — that required status checks were unavailable on this
+  repository's plan/visibility, citing a `403 "Upgrade to GitHub Pro or make this repository public
+  to enable this feature"` response. That observation was accurate when written, while the
+  repository was still private, and predates its public release; exactly when protection was
+  enabled afterwards is not recorded here.
 
 ### `regression` — runs on `schedule` (nightly, `0 6 * * *` UTC) and `workflow_dispatch`
 
