@@ -24,6 +24,7 @@ pick the guide that matches your task.
 | [`REVIEW_CHECKLIST.md`](REVIEW_CHECKLIST.md) | You (or a reviewer) are about to approve a PR against this repo. |
 | [`API_TEST_GENERATION.md`](API_TEST_GENERATION.md) | You're using an AI agent to draft new tests, endpoints, or POJOs, and need the safe, human-reviewed workflow for doing that in this framework. |
 | [`CI_EXECUTION_EVIDENCE.md`](CI_EXECUTION_EVIDENCE.md) | You're about to treat a green set of required PR checks as proof a newly added test actually ran — read this first if the new test is tagged `regression` rather than `smoke`. |
+| [`AI_TEST_AUTOMATION_PLAN.md`](AI_TEST_AUTOMATION_PLAN.md) | You're planning, reviewing, or resuming AI-assisted test automation beyond a single local session — the proposed architecture, trust model, prompt-injection boundary, permission limits, and phased roadmap. Planned, not implemented. |
 
 ## How these guides relate to the existing root docs
 

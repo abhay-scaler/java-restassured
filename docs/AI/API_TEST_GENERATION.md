@@ -58,7 +58,9 @@ happening.
 2. Run [`REVIEW_CHECKLIST.md`](REVIEW_CHECKLIST.md) against the diff, same as any other PR.
 3. Actually run the generated tests (`mvn test -Dapp=<app> -Denv=qa -Dtest=<NewClass>`) and read
    the real output — don't accept "the agent says it passed" without seeing the Surefire/Extent
-   result yourself.
+   result yourself. Generated tests usually land in `regression`, which the required PR checks do
+   not execute — see [`CI_EXECUTION_EVIDENCE.md`](CI_EXECUTION_EVIDENCE.md) for what green checks
+   do and don't prove, and how to get real execution evidence.
 4. Confirm the generated code didn't duplicate an existing helper (`ResponseValidator`,
    `RandomDataGenerator`, `HttpLogFormatter`) with a new inline equivalent — agents unfamiliar with
    the codebase tend to reinvent utilities that already exist.

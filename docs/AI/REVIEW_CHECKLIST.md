@@ -97,6 +97,10 @@ checklist. Everything not marked with a Check ID still needs a manual/human pass
       Allure/Extent population (`TestListener`) for that suite.
 - [ ] Tests are tagged with the right TestNG `groups` (`smoke`/`regression`/`negative`) for the
       suites that should pick them up.
+- [ ] If the PR's new tests are tagged `regression` rather than `smoke`, you have execution
+      evidence beyond the green required checks — see
+      [`CI_EXECUTION_EVIDENCE.md`](CI_EXECUTION_EVIDENCE.md) for why green is necessary but not
+      sufficient here, and what counts as evidence.
 - [ ] A schema-validated response uses `SchemaValidator.validate`/`validateStrict` against a real
       schema file under `schemas/<app>/`, not an inline ad-hoc shape check duplicating that.
 

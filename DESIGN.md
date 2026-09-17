@@ -334,10 +334,11 @@ both applications alongside `ConfigManagerTests`.
   nothing in this repo can create it automatically. `framework-health` needs no secret.
 - `mvnw`/`mvnw.cmd` mean CI (and every contributor) builds with the exact Maven version this
   project expects, without relying on whatever happens to be installed globally.
-- `framework-health`'s pass/fail is visible as a normal GitHub Actions check on every PR, but it is
-  not currently a hard merge gate: this repository's branch-protection "required status checks"
-  feature is unavailable on its current GitHub plan/visibility, independent of anything in this
-  workflow file.
+- `framework-health`'s pass/fail is visible as a normal GitHub Actions check on every PR, and it is
+  one of `main`'s three required status-check contexts (alongside both `Smoke suite (PR / push)`
+  legs), so a failure blocks the merge button. That gating comes from branch protection, a
+  GitHub-side setting, independent of anything in this workflow file — see
+  [`docs/AI/CI.md`](docs/AI/CI.md) for how to confirm the current list.
 
 ## Design principles
 
