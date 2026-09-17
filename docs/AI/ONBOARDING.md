@@ -136,3 +136,54 @@ a broken reference — you don't need to hunt for a top-level `apps/` directory 
 - Something failed? Go to [`DEBUG_TEST_FAILURE.md`](DEBUG_TEST_FAILURE.md).
 - About to open a PR? Run [`REVIEW_CHECKLIST.md`](REVIEW_CHECKLIST.md).
 - Full guide index: [`SKILLS.md`](SKILLS.md).
+
+## 7. Using this framework for another project
+
+The sections above are about *this* repository. If you're pointing an AI agent at a
+*different* repository and want it to bring the same discovery-first, human-reviewed discipline
+this framework's `docs/AI/` layer embodies, give it a prompt shaped like this one — filling in
+what you already know and leaving the rest for the agent to discover or ask about:
+
+```
+I want you to help automate API tests in this repository.
+First inspect the repository and its instructions.
+
+- Repository: [REPO URL / PATH]
+- Application/API: [NAME]
+- Environment/base URL: [URL or "unknown"]
+- API documentation: [URL/PATH or "unknown"]
+- Main scenarios: [LIST or "please discover"]
+- Existing framework: [KNOWN or "discover it"]
+- CI: [KNOWN or "discover it"]
+- Anything you must NOT modify: [LIST, or "propose one after inspecting"]
+
+Then:
+1. Understand the existing API-test architecture and conventions.
+2. Identify what information is genuinely missing.
+3. Ask me for one missing item at a time. Do not ask multiple questions together.
+4. Do not ask for information you can discover from the repository.
+5. Do not guess API behavior, authentication, expected responses, or project conventions.
+   Verify expected status codes and response shapes against the real API or its
+   specification; label any assumption explicitly as an assumption.
+6. Never expose, hard-code, commit, or print real API credentials — including in
+   chat/prompt content, logs, test reports, or CI artifacts. If authentication details
+   are missing, ask how they are securely provided.
+7. Once you have enough information, give me a concise implementation plan and wait for my
+   approval.
+8. After approval, implement the tests using the repository's existing architecture and
+   conventions. Never weaken, disable, delete, or otherwise change an existing test or
+   assertion just to make a test pass.
+9. Never modify secrets, credentials, CI permissions, or branch-protection/security
+   settings. Do not modify other unrelated code, CI, or configuration either, unless I
+   explicitly approve it. If any such change seems needed, stop and ask me first.
+10. Confirm each new test is actually registered in the relevant suite/tag and would run
+    in CI — not just that it compiles.
+11. Run compilation, relevant tests, and existing validation.
+12. If anything fails, classify why before changing any code (test defect, application
+    defect, config/environment issue, flaky/external, etc.) — do not edit code merely to
+    make a failure go away.
+13. Report exactly what changed, what tests executed, and what was actually verified.
+
+Start by inspecting the repository. Do not start generating tests or ask me questions until
+you have inspected what is already available.
+```
